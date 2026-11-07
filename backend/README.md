@@ -1,86 +1,88 @@
-# Document Generator – funktionsfähiger Monolith
+# Backend: klassischer Layered Monolith
 
-## Lokal starten
+Es gibt genau ein Projekt: `DocumentGenerator.Api`. Controller, Service, Repository und Datenmodell liegen als technische Schichten im selben Projekt. Wir verwenden konkrete Klassen, keine separaten Domain-/Application-/Infrastructure-Projekte und kein eigenes Unit-of-Work-Interface. EF Core übernimmt die Änderungsverfolgung und das Speichern.
 
-Voraussetzungen: .NET-10-SDK; Python 3 nur für den API-Smoke-Test.
-Vom Repository-Stamm aus:
+## Start und Anfrageweg
 
-```sh
-dotnet build backend/DocumentGenerator.sln -c Release
-dotnet run --project backend/DocumentGenerator.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5080
+Die Befehle für PostgreSQL, Migration und Start stehen in der [Hauptanleitung](../README.md).
+
+Eine gespeicherte Vorlage durchläuft:
+
+**Nuxt → TemplatesController → TemplateService → TemplateRepository → AppDbContext → PostgreSQL**
+
+Bei der Texterzeugung genügt:
+
+**Nuxt → DocumentsController → GenerateDocument → TemplateRenderer → JSON-Antwort**
+
+## Dateien und zentrale Konzepte
+
+- `DocumentGenerator.sln`: Bündelt das eine API-Projekt für IDE und gemeinsamen Build.
+- `.gitignore`: Schließt lokale Build- und IDE-Dateien aus.
+- `DocumentGenerator.Api.csproj`: `Microsoft.NET.Sdk.Web` definiert das Webprojekt für net10.0. Nullable-Prüfungen helfen bei null-Werten, implizite Usings stellen häufige Namespaces bereit. Npgsql verbindet EF Core mit PostgreSQL; EF Design stellt die Migrationserzeugung bereit; OpenAPI beschreibt die HTTP-Schnittstelle.
+- `Program.cs`: `CreateBuilder` bereitet Konfiguration, Logging und Host vor. `AddControllers` registriert die MVC-Dienste, `MapControllers` ordnet eingehende Anfragen den Attributrouten zu. `AddDbContext` und `AddScoped` stellen pro HTTP-Anfrage die zusammengehörigen Abhängigkeiten bereit. Der Container baut Controller → Service → Repository → DbContext automatisch auf. `Run` startet Kestrel. `UseExceptionHandler` liefert bei unerwarteten Fehlern generische ProblemDetails statt interner Details. `--migrate` wendet ausdrücklich die Migrationen an und beendet den Prozess.
+- `appsettings.json`: Enthält lokale PostgreSQL-Verbindung, Logging und Hostkonfiguration. Umgebungsvariablen können diese Werte überschreiben; für Verbindungen heißt die Variable `ConnectionStrings__Default`.
+
+### Models
+
+- `Models/DocumentTemplate.cs`: Einfaches Entity-Modell mit öffentlichen Settern: Id, Name, Type, Content und CreatedAt. Id und UTC-Zeitstempel erzeugt das Backend. Diese unkomplizierte Form ist für den ersten Monolithen beabsichtigt.
+- `Models/DocumentType.cs`: Enum für Letter, Invoice und Reminder. In JSON werden lesbare Namen verwendet.
+
+### DTOs
+
+- `DTOs/CreateTemplateRequest.cs`: Transportiert Name, Type und Content. Der Client kann keine Id oder Erstellungszeit setzen. DataAnnotations prüfen Pflichtfelder und Längen; bei diesem Record stehen die Attribute an den Konstruktorparametern.
+- `DTOs/TemplateResponse.cs`: Beschreibt die zurückgegebenen Vorlagendaten, unabhängig von der internen EF-Verfolgung.
+
+### Data und Repository
+
+- `Data/AppDbContext.cs`: EF-Core-Kontext mit `DbSet<DocumentTemplate>`. Das Modell legt Pflichtfelder, Längen und einen Index auf CreatedAt fest. Ein DbContext verfolgt Änderungen und ist nicht thread-sicher.
+- `Repositories/TemplateRepository.cs`: Konkrete Datenzugriffsklasse. Leseabfragen verwenden `AsNoTracking`; Änderungen werden mit `SaveChangesAsync` gespeichert. Diese einfache Repository-Variante entspricht dem ersten Lernschritt. Später können mehrere Operationen unter einer gemeinsamen Arbeitseinheit zusammengefasst werden.
+- `Migrations/*_InitialCreate.cs`: `Up` legt die Vorlagentabelle und den Index an; `Down` beschreibt deren Rücknahme.
+- `Migrations/*_InitialCreate.Designer.cs`: Von EF erzeugte Metadaten und Zielmodell der initialen Migration.
+- `Migrations/AppDbContextModelSnapshot.cs`: Von EF erzeugter letzter Modellstand als Basis zukünftiger Migrationen.
+
+### Services
+
+- `Services/TemplateService.cs`: Prüft fachliche Vorlageneingaben, erstellt Entities und gibt DTOs zurück. Er delegiert die Speicherung an das Repository.
+- `Services/TemplateRenderer.cs`: Erkennt Platzhalter wie `{{Name}}`, prüft Syntax und fehlende Werte und ersetzt sie einmalig wörtlich. Groß-/Kleinschreibung ist relevant. Grenzen: Vorlage 20.000, einzelner Wert 5.000, Ergebnis 1.000.000 Zeichen. Ein eingesetzter Wert wird nicht erneut als Vorlage ausgewertet.
+- `Services/GenerateDocument.cs`: Verbindet Vorlage und Werte zur Texterzeugung und liefert einen Ergebnisdatensatz mit Content und Fields.
+
+### Controllers
+
+- `Controllers/HealthController.cs`: `GET /api/health` bestätigt lediglich die Erreichbarkeit der API, nicht die Datenbankverbindung.
+- `Controllers/TemplatesController.cs`: CRUD-Endpunkte. `[ApiController]` aktiviert automatische Eingabevalidierung; Attributrouten bestimmen URL und HTTP-Methode. `CreatedAtAction` liefert bei Erstellung 201 und eine aufrufbare Location. Fehlende Ids liefern 404, fachliche Eingabefehler 400.
+- `Controllers/DocumentsController.cs`: Enthält das Eingabemodell für Texterzeugung und ruft den Generator auf. `Ok` erzeugt 200 mit JSON; die Ersetzungslogik liegt im Service.
+
+### Tests
+
+- `tests/smoke.py`: Prüft Erreichbarkeit, Erzeugung, Unicode, Syntax, fehlende Werte und Grenzen gegen die laufende API.
+- `tests/templates.py`: Prüft Create/List/Get/Update/Delete mit echter Datenbank, Location, Zeitstempel, Validierung und unbekannten Ids. Entfernt nur seine selbst angelegte Vorlage.
+- `README.md`: Diese Unterrichts- und Dateierklärung.
+
+## Endpunkte
+
+| Methode | Pfad | Zweck |
+|---|---|---|
+| GET | /api/health | API-Erreichbarkeit |
+| GET | /api/templates | Vorlagen auflisten |
+| GET | /api/templates/{id} | Vorlage abrufen |
+| POST | /api/templates | Vorlage erstellen |
+| PUT | /api/templates/{id} | Vorlage ändern |
+| DELETE | /api/templates/{id} | Vorlage löschen |
+| POST | /api/documents/generate | Text erzeugen |
+| GET | /openapi/v1.json | API-Beschreibung |
+
+Beispiel für POST /api/templates:
+
+```json
+{"name":"Terminbestätigung","type":"Letter","content":"Hallo {{Name}}!"}
 ```
 
-Öffne http://127.0.0.1:5080 im Browser. Klicke „Beispiel laden“, dann „Dokument erstellen“. Die Vorschau enthält den fertigen Text, der als UTF-8-Textdatei heruntergeladen werden kann. Eigene Vorlagen sind direkt editierbar; Eingabefelder entstehen automatisch aus den Platzhaltern.
+Beispiel für POST /api/documents/generate:
 
-Ein Prozess liefert Oberfläche und API aus. Kein Node-Build, keine Datenbank und keine zusätzlichen NuGet-Pakete erforderlich. Vorlagen, Werte und Ergebnisse werden nicht dauerhaft gespeichert. Es gibt noch keine PDF-/Word-Ausgabe, Anmeldung oder Vorlagenverwaltung. Diese Version ist ein lokal ausführbarer erster Anwendungsfall, kein geprüftes öffentliches Produktionsdeployment.
-
-## Architektur verstehen
-
-Abhängigkeiten: API → Application → Domain. Die Solution bündelt diese drei Projekte; eine einzelne API-Anwendung startet sie gemeinsam. Das ist der Layered Monolith.
-
-### Domain
-
-- `DocumentGenerator.Domain.csproj`: Bibliothek für net10.0 ohne Projektabhängigkeiten.
-- `DocumentTemplate.cs`: Fachliche Regeln und Texterzeugung. Platzhalter wie `{{Name}}` oder `{{ Datum }}` beginnen mit einem Buchstaben oder Unterstrich, gefolgt von Buchstaben, Ziffern oder Unterstrichen. Namen sind case-sensitive. Wiederholte Felder benötigen nur einen Wert. Ungültige Klammern, fehlende/leere Werte sowie zu große Vorlagen/Werte/Ergebnisse werden abgelehnt. Werte werden einmalig und wörtlich eingesetzt; Platzhalter innerhalb eines Werts werden nicht erneut ausgewertet.
-
-### Application
-
-- `DocumentGenerator.Application.csproj`: Bibliothek mit Referenz auf Domain.
-- `GenerateDocument.cs`: Führt den Anwendungsfall aus: Vorlage erzeugen, Werte einsetzen, Ergebnis und Feldnamen zurückgeben. `GeneratedDocument` ist der unveränderliche Ergebnisdatensatz. Die Klasse kennt weder HTTP noch Browser.
-
-### API
-
-- `DocumentGenerator.Api.csproj`: Webprojekt; referenziert Application. Nullable-Prüfungen helfen bei null-Werten, implizite Usings stellen häufige Namespaces bereit.
-- `Program.cs`: `CreateBuilder` bereitet Host, Logging und Konfiguration vor. `AddControllers` registriert die Controller-Dienste. `AddScoped<GenerateDocument>` stellt pro Anfrage eine Anwendungsfallinstanz durch Dependency Injection bereit. `Build` erstellt die Anwendung. `UseDefaultFiles` wählt für `/` die index.html, `UseStaticFiles` liefert HTML/CSS/JS aus. `MapControllers` bindet die Attributrouten ein. `Run` startet Kestrel. Die maximale Anfragegröße beträgt 1 MB.
-- `Controllers/HealthController.cs`: `GET /api/health` bestätigt mit HTTP 200 und `{"status":"healthy"}`, dass die API antwortet. Keine Prüfung externer Dienste.
-- `Controllers/DocumentsController.cs`: Enthält das HTTP-Eingabemodell und den Controller. `[ApiController]` und DataAnnotations prüfen Pflichtangaben und Vorlagenlänge. Der Konstruktor erhält den Anwendungsfall durch Dependency Injection. `[HttpPost("generate")]` ergänzt die Route zu `/api/documents/generate`. Fachliche Eingabefehler werden zu HTTP 400 im ProblemDetails-Format; der Controller enthält keine Ersetzungslogik.
-- `wwwroot/index.html`: Deutsche, semantische Oberfläche mit beschrifteten Feldern, Statusbereich und Ergebnisanzeige.
-- `wwwroot/styles.css`: Darstellung, sichtbare Tastaturfokusse und einspaltiges Layout für schmale Bildschirme.
-- `wwwroot/app.js`: Erkennt Felder, sendet JSON mit fetch, zeigt Lade-/Fehlerzustände und erzeugt den Textdownload. `textContent` zeigt Eingaben als Text statt HTML. Änderungen verwerfen alte Ergebnisse; verspätete Antworten überschreiben keine neueren Eingaben. Anfragen haben ein Zeitlimit.
-
-### Weitere Dateien
-
-- `DocumentGenerator.sln`: Gemeinsamer Build der drei Projekte.
-- `.gitignore`: Schließt bin/obj und lokale IDE-Dateien aus.
-- `tests/smoke.py`: Wiederholbarer Integrationstest gegen die laufende API; benötigt nur die Python-Standardbibliothek.
-- `README.md`: Diese Architektur-, Start- und Testanleitung.
-
-Eine Infrastructure-Bibliothek wird erst benötigt, wenn technische Zugriffe wie Speicherung hinzukommen. Für die aktuelle reine Textverarbeitung gibt es dafür keine Implementierung.
-
-## API-Beispiel
-
-```http
-POST /api/documents/generate
-Content-Type: application/json
-
+```json
 {"template":"Hallo {{Name}}!","values":{"Name":"Erika"}}
 ```
 
-Antwort HTTP 200:
+Antwort: `{"content":"Hallo Erika!","fields":["Name"]}`.
 
-```json
-{"content":"Hallo Erika!","fields":["Name"]}
-```
-
-Grenzen: Vorlage maximal 20.000 Zeichen, Wert maximal 5.000 Zeichen, Ergebnis maximal 1.000.000 Zeichen. Fehlende oder nur aus Leerraum bestehende Werte werden abgelehnt. Nicht verwendete Werte beeinflussen das Ergebnis nicht.
-
-## Prüfung am 7. November 2026
-
-- macOS ARM64, .NET SDK 10.0.403: Release-Build erfolgreich, 0 Warnungen, 0 Fehler.
-- `node --check backend/DocumentGenerator.Api/wwwroot/app.js`: erfolgreich (Node nur zur Entwicklungsprüfung verwendet).
-- Gegen die laufende API: `python3 backend/tests/smoke.py http://127.0.0.1:5080`. Erfolgreich geprüft: Health, HTML/CSS/JS, Texterzeugung, Unicode, wiederholte Felder, wörtliche Werte, Vorlagen ohne Felder, fehlende/leere Werte, Case-Sensitivity, ungültige Syntax, Vorlagen-/Werte-/Ergebnislimits, null-Werte und unbekannte Route.
-- Browser: Beispiel laden → Dokument erstellen → Vorschau korrekt → Textdownload ausgelöst. Heruntergeladener UTF-8-Inhalt mit dem erwarteten Ergebnis verglichen: korrekt.
-- Browser: Eingabeänderung deaktiviert alten Download und verwirft Vorschau. Script-Text wird sichtbar als Text ausgegeben. Fehler bei ungültigem Platzhalter wird angezeigt.
-- Responsive-Prüfung mit 390 px: eine Spalte, Dokumentbreite 390 px ohne horizontalen Überlauf. Desktopdarstellung visuell geprüft.
-- `dotnet publish` erfolgreich; derselbe API-Smoke-Test bestand auch gegen das veröffentlichte Paket einschließlich der ausgelieferten Frontend-Dateien.
-- Der eingeschränkte Build blieb ohne Fortschritt; der erfolgreiche Build und die lokalen HTTP-Tests liefen außerhalb dieser Einschränkung. Kein HTTPS-/Deployment-/Lasttest. Keine Datenbanktests, da keine Datenbank verwendet wird.
-
-## Veröffentlichen als lokales Paket
-
-```sh
-dotnet publish backend/DocumentGenerator.Api -c Release -o artifacts/document-generator
-cd artifacts/document-generator
-dotnet DocumentGenerator.Api.dll --urls http://127.0.0.1:5080
-```
-
-Auch dafür ist die .NET-10-/ASP.NET-Core-Laufzeit erforderlich. Der veröffentlichte Ordner enthält die Oberfläche in wwwroot.
+Für zukünftige Schemaänderungen EF-Werkzeug 10.0.14 bereitstellen und `dotnet ef migrations add NAME --project backend/DocumentGenerator.Api` verwenden. Generierte Migrationen prüfen und versionieren; `--migrate` wendet sie anschließend an.

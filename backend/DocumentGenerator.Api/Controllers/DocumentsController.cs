@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using DocumentGenerator.Application;
+using DocumentGenerator.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocumentGenerator.Api.Controllers;

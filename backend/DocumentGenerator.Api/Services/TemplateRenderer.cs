@@ -1,15 +1,15 @@
 using System.Text.RegularExpressions;
 
-namespace DocumentGenerator.Domain;
+namespace DocumentGenerator.Api.Services;
 
-public sealed class DocumentTemplate
+public sealed class TemplateRenderer
 {
     public const int MaxLength = 20000;
     private static readonly Regex Placeholder = new(@"\{\{\s*([\p{L}_][\p{L}\p{N}_]*)\s*\}\}", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
     public string Text { get; }
     public IReadOnlyList<string> Fields { get; }
 
-    public DocumentTemplate(string text)
+    public TemplateRenderer(string text)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > MaxLength)
             throw new ArgumentException($"Die Vorlage muss 1 bis {MaxLength} Zeichen enthalten.");

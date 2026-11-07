@@ -22,9 +22,6 @@ def generate(template, values, expected=200):
     return json.loads(body)
 
 assert json.loads(request('/api/health')[0])['status'] == 'healthy'
-for path, media in [('/', 'text/html'), ('/app.js', 'javascript'), ('/styles.css', 'text/css')]:
-    body, headers = request(path)
-    assert body and media in headers['Content-Type']
 assert generate('Hallo {{Name}}, am {{ Datum }}. {{Name}}', {'Name': 'Erika', 'Datum': '15.11.2026'})['content'] == 'Hallo Erika, am 15.11.2026. Erika'
 assert generate('{{Änderung}}', {'Änderung': 'Grüße'})['content'] == 'Grüße'
 assert generate('{{Name}}', {'Name': '$1 {{Datum}} <script>alert(1)</script>'})['content'] == '$1 {{Datum}} <script>alert(1)</script>'
@@ -33,4 +30,4 @@ for template, values in [('{{Name}}', {}), ('{{Name}}', {'Name': ' '}), ('{{Name
     generate(template, values, 400)
 request('/api/documents/generate', {'template': 'Hallo', 'values': None}, 400)
 request('/api/missing', expected=404)
-print('PASS: health, static frontend assets, successful rendering, Unicode, repeated fields, literal values, missing/blank/case-sensitive fields, malformed templates, length/output limits, null values and unknown route')
+print('PASS: health, successful rendering, Unicode, repeated fields, literal values, missing/blank/case-sensitive fields, malformed templates, length/output limits, null values and unknown route')
