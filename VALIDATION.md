@@ -38,6 +38,10 @@ Stand: 7./8. November 2026, macOS ARM64. Lokal geprüft; keine Cloud-Veröffentl
 - Ein veralteter Vue Router verursachte einen Typprüfungs-Pluginfehler; kompatible Version installiert.
 - Vorlagenvalidierung gilt nun auch im Browser-Modus, nicht nur beim API-Speichern.
 
+## GitHub Actions
+
+Der Workflow für den Code-Commit 2363d9e8bdd4c2dd2f73b91dc5a291f91a83f40f lief am 8. November 2026 erfolgreich auf Ubuntu durch: PostgreSQL-Service, .NET-Tests, npm ci mit Node 24, Typecheck, Frontend-Tests, statischer Build und Artefakt-Upload. Der Deployment-Job wurde ausdrücklich übersprungen. [Geprüfter Lauf](https://github.com/Nitoh/document-generator/actions/runs/42423952717).
+
 ## Noch nicht geprüft / aktiviert
 
-Docker-/Compose-Ausführung, Docker-Image-Build, tatsächlicher GitHub-Actions-Lauf, GitHub-Pages-Veröffentlichung, Render und Neon sind nicht lokal ausführbar bzw. noch nicht eingerichtet. Keine Konten erstellt, keine Ressourcen provisioniert und kein öffentlicher Dienst gestartet. Keine formale DIN-Zertifizierung, kein Last- oder Sicherheitstest einer öffentlichen Anwendung. Dafür bleiben separate Einrichtung und Prüfung nötig.
+Lokale Docker-/Compose-Ausführung, Docker-Image-Build und GitHub-Pages-Veröffentlichung, Render und Neon sind nicht lokal ausführbar bzw. noch nicht eingerichtet. Keine Konten erstellt, keine Ressourcen provisioniert und kein öffentlicher Dienst gestartet. Keine formale DIN-Zertifizierung, kein Last- oder Sicherheitstest einer öffentlichen Anwendung. Dafür bleiben separate Einrichtung und Prüfung nötig.
