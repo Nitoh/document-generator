@@ -1,18 +1,16 @@
-# Document Generator
+# Nitoh · Letter Studio
 
-Lernprojekt: ein klassischer Layered Monolith mit **einem ASP.NET-Core-Projekt**, **EF Core/PostgreSQL** und einem separaten **Nuxt-Frontend**. Die technischen Schichten sind Ordner im API-Projekt. Clean Architecture und eine Aufteilung in mehrere Backend-Projekte folgen erst in einer späteren Lernphase.
+Ein klassischer ASP.NET-Core-Monolith mit Nuxt-Frontend: professionelle Briefe gestalten, Vorlagen verwalten und A4-PDFs herunterladen. Schwarz, Sand und ein reduziertes N-Monogramm prägen die Oberfläche.
 
 ## Lokal starten
 
-Voraussetzungen: .NET-10-SDK, Node.js 22.12+ (unterstützte gerade Version), npm und Docker mit Compose. Python 3 wird nur für die API-Tests benötigt.
-
-Vom Repository-Stamm:
+Voraussetzungen: .NET-10-SDK, Node.js 24 LTS und npm; PostgreSQL 18 lokal oder Docker Compose. Kein Python erforderlich.
 
 ```sh
 docker compose up -d --wait
 dotnet build backend/DocumentGenerator.sln -c Release
-dotnet run --project backend/DocumentGenerator.Api -c Release --no-build -- --migrate
-dotnet run --project backend/DocumentGenerator.Api -c Release --no-build --urls http://127.0.0.1:5080
+dotnet run --project backend/Api -c Release --no-build -- --migrate
+dotnet run --project backend/Api -c Release --no-build --urls http://127.0.0.1:5080
 ```
 
 In einem zweiten Terminal:
@@ -23,50 +21,64 @@ npm ci
 npm run dev
 ```
 
-Öffne http://127.0.0.1:3000. Vorlage speichern → gespeicherte Vorlage auswählen → Platzhalter ausfüllen → Dokument erstellen → Textdatei herunterladen. Name, Dokumenttyp und Inhalt können geändert und erneut gespeichert werden. Löschen erfordert eine Bestätigung in der Oberfläche.
-
-Compose startet PostgreSQL mit einem persistenten Volume. `docker compose down` beendet den Container und erhält das Volume. `--migrate` ist ein expliziter Einrichtungsbefehl, der die eingecheckten EF-Core-Migrationen anwendet und danach endet. Beim normalen Serverstart werden keine Schemaänderungen ausgeführt.
-
-Die Beispiel-Zugangsdaten in `appsettings.json` und Compose sind ausschließlich für die lokale Entwicklung. Mit `ConnectionStrings__Default` kann die vollständige Verbindung konfiguriert werden. Wenn `POSTGRES_PASSWORD` geändert wird, muss die Backend-Verbindung denselben Wert verwenden. Die Datenbank ist lokal an 127.0.0.1 gebunden. Bestehende Volumes behalten ihre ursprünglichen Zugangsdaten.
-
-Nuxt leitet `/api/*` serverseitig an die API weiter. Für eine andere Backend-Adresse: `NUXT_BACKEND_URL=http://127.0.0.1:5080`. Es ist keine CORS-Freigabe nötig.
+Öffne http://127.0.0.1:3000. Absender → Empfänger → Inhalt → Details. Mit „Brief fertigstellen“ werden Platzhalter über den per DI eingebundenen C#-DocumentService ersetzt. „PDF herunterladen“ erstellt eine A4-Datei mit eingebetteter Schrift. „Drucken“ verwendet zusätzlich die Druckfunktion des Browsers.
 
 ## Aufbau
 
 ```text
 backend/
   DocumentGenerator.sln
-  DocumentGenerator.Api/
-    Controllers/     HTTP-Endpunkte
-    Services/        Anwendungslogik und Textverarbeitung
-    Repositories/    Datenzugriff mit konkreten Klassen
-    Models/          Vorlagenmodell und Dokumenttyp
-    DTOs/            Ein- und Ausgabedaten für Vorlagen
-    Data/            EF-Core-DbContext
-    Migrations/      Versioniertes Datenbankschema
-frontend/            Eigenständiges Nuxt-Projekt mit Vue und TypeScript
-compose.yaml         Lokales PostgreSQL mit Volume und Healthcheck
+  Api/                         Ein ASP.NET-Core-Anwendungsprojekt
+    Controllers/               HTTP-Endpunkte
+    Services/                  DocumentService, TemplateService, TemplateRenderer
+    Repositories/              Konkreter EF-Core-Datenzugriff
+    Models/                    Gespeicherte Vorlage und Dokumenttyp
+    DTOs/                      HTTP-Ein-/Ausgaben und Brief-Layout
+    Data/                      AppDbContext
+    Migrations/                Versioniertes PostgreSQL-Schema
+  Api.Tests/                   C#-/xUnit- und HTTP-Integrationstests
+frontend/
+  app/pages/                   Studio-Seite
+  app/components/               UI, Editor, Archiv, Briefseiten, Branding
+  app/composables/              Zustand, API, Entwurf, PDF-Download
+  app/types/                   TypeScript-Datenmodelle
+  app/utils/                   Reine Text-, Pagination- und PDF-Funktionen
+  app/assets/                  Styles, Drucklayout, eingebettete Schriften
+  tests/                       TypeScript-/Vitest-Tests
+compose.yaml                   PostgreSQL für lokale Entwicklung
+.github/workflows/             Tests und vorbereitete Pages-Veröffentlichung
 ```
 
-Erklärungen zu jeder Datei und den ASP.NET-Core-Konzepten: [Backend-Anleitung](backend/README.md). Nuxt-Aufbau: [Frontend-Anleitung](frontend/README.md). Ehrliche Prüfergebnisse: [VALIDATION.md](VALIDATION.md).
+**Ein Backend-Anwendungsprojekt**, technische Schichten als Ordner. `Api.Tests` ist nur ein Testprojekt. Clean Architecture und separate Domain-/Application-Projekte bleiben einer späteren Lernphase vorbehalten.
 
-## Wiederholbare Prüfungen
+## Speicherung und Betriebsarten
 
-Bei laufender API und PostgreSQL:
+- **API-Modus (Standard lokal):** Vorlagen mit Brieftext und Layout werden in PostgreSQL gespeichert. Nuxts Nitro-Proxy verbindet Browser und API. Entwürfe einschließlich eingesetzter Werte werden zusätzlich auf dem aktuellen Gerät zwischengespeichert.
+- **Lokaler Browser-Modus:** `NUXT_PUBLIC_STORAGE_MODE=local` speichert Vorlagen auf dem jeweiligen Gerät und ersetzt Platzhalter im Browser. Kein Serverkonto erforderlich, kein geräteübergreifender Abgleich. Das ist der vorbereitete Pages-Modus, solange kein öffentliches Backend existiert.
+- **Pages mit späterem Backend:** `NUXT_PUBLIC_API_BASE=https://DEINE-API` und `NUXT_PUBLIC_STORAGE_MODE=api`. Die API muss den Frontend-Ursprung gezielt per CORS erlauben. Keine Zugangsdaten oder Datenbankverbindungen gehören in öffentliche Nuxt-Konfiguration.
+
+Die Datenbankverbindung wird über `ConnectionStrings__Default` gesetzt. Die Beispielwerte in appsettings/Compose gelten nur lokal. `--migrate` wendet die Migrationen explizit an; normaler Serverstart verändert kein Schema.
+
+## Tests
 
 ```sh
-python3 backend/tests/smoke.py http://127.0.0.1:5080
-python3 backend/tests/templates.py http://127.0.0.1:5080
-```
-
-Der Vorlagentest legt eine eigene Testvorlage an und entfernt nur diese wieder. Derselbe CRUD-Test funktioniert bei laufendem Nuxt auch gegen `http://127.0.0.1:3000`.
-
-```sh
+dotnet test backend/DocumentGenerator.sln -c Release
 cd frontend
 npm run typecheck
+npm test
 npm run build
 ```
 
-Produktionsbuild lokal ausführen: im Frontend-Ordner `HOST=127.0.0.1 PORT=3000 node .output/server/index.mjs`. Backend separat mit `dotnet publish backend/DocumentGenerator.Api -c Release -o artifacts/backend` veröffentlichen. Die Datenbankverbindung und das Anwenden der Migrationen bleiben explizite Schritte.
+Ohne Datenbankvariable werden 14 Backend-Tests ausgeführt und der PostgreSQL-Test ausdrücklich übersprungen. Für alle 15 Tests `TEST_DATABASE_CONNECTION` auf eine eigene PostgreSQL-Testdatenbank setzen. Die Integration wendet Migrationen an, erzeugt eine eigene Testvorlage, startet die Anwendung neu, prüft CRUD und entfernt ihre Vorlage wieder. In CI läuft PostgreSQL als Service.
 
-Vorlagen werden dauerhaft gespeichert. Eingesetzte Werte und erzeugte Dokumente werden nicht gespeichert. Ausgabe ist zunächst Klartext (.txt), nicht PDF/Word. Keine Anmeldung oder öffentlich geprüfte Produktionsbereitstellung; der aktuelle Stand ist für die lokale Lernumgebung bestimmt.
+## Brief- und Drucklayout
+
+A4 mit Briefkopf, Rücksendeangabe, Empfängeranschrift, Informationsblock, Datum, Betreff, Anrede, Text, Grußformel, Unterschriftsraum, optionaler Fußzeile und Falz-/Lochmarken. Mehrseitige Briefe erhalten Fortsetzungsseiten und Seitenzahlen. Vorschau und PDF verwenden die mitgelieferte Carlito-Schrift; OFL-Lizenz liegt bei.
+
+Die Maße orientieren sich an **DIN 5008, Form B**. Das ist keine behauptete Zertifizierung gegen den vollständigen Normtext. Layoutquellen, Maße und Prüfgrenzen stehen in [PRINT-LAYOUT.md](PRINT-LAYOUT.md).
+
+## Veröffentlichung
+
+Render und Neon sind derzeit nicht eingerichtet. Dockerfile, Render-Blueprint und GitHub-Pages-Workflow sind vorbereitet, aber Pages-Deployment ist standardmäßig deaktiviert. Details und kostenlose Tarifgrenzen: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+[Backend-Erklärung](backend/README.md) · [Nuxt-Erklärung](frontend/README.md) · [Prüfergebnisse](VALIDATION.md)

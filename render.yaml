@@ -1,0 +1,21 @@
+# Prepared only. No Render service has been created or deployed.
+services:
+  - type: web
+    name: nitoh-document-generator-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: master
+    autoDeploy: false
+    dockerfilePath: ./backend/Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_HTTP_PORTS
+        value: 10000
+      - key: APPLY_MIGRATIONS
+        value: "true"
+      - key: ConnectionStrings__Default
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        value: https://nitoh.github.io

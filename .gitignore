@@ -9,3 +9,4 @@
 !.env.example
 artifacts/
 .DS_Store
+**/TestResults/
