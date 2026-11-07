@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Document Generator</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script></head>
+<body><header><a href="/" class="brand">◧ Document Generator</a><span>Dein Text. Fertig in Sekunden.</span></header>
+<main><div class="intro"><p class="eyebrow">VON DER VORLAGE ZUM DOKUMENT</p><h1>Weniger tippen.<br>Mehr erledigen.</h1><p>Erstelle persönliche Dokumente mit wiederverwendbaren Platzhaltern.</p></div>
+<form id="generator"><div class="workspace"><section class="card"><div class="step">01 · VORLAGE</div><h2>Was möchtest du schreiben?</h2><label for="template">Dein Vorlagentext</label><textarea id="template" maxlength="20000" required spellcheck="false">Hallo {{Name}},
+
+hiermit bestätigen wir deinen Termin am {{Datum}}.
+
+Viele Grüße
+Dein Team</textarea><p class="hint">Platzhalter: {{Name}} · Buchstaben, Ziffern und _ · Groß-/Kleinschreibung beachten.</p><button id="example" class="secondary" type="button">Beispiel laden</button></section>
+<section class="card"><div class="step">02 · PERSONALISIEREN</div><h2>Mach es persönlich.</h2><div id="fields"></div><p id="empty" hidden>Diese Vorlage benötigt keine Werte.</p><button id="generate" type="submit">Dokument erstellen <span aria-hidden="true">→</span></button><p id="message" role="status" aria-live="polite"></p></section></div>
+<section class="card result"><div class="result-head"><div><div class="step">03 · DEIN ERGEBNIS</div><h2>Bereit zum Verwenden.</h2></div><button id="download" class="secondary" type="button" disabled>Als .txt herunterladen</button></div><pre id="preview" tabindex="0">Dein fertiges Dokument erscheint hier.</pre></section></form>
+<footer>Texte werden zur Erstellung verarbeitet und nicht gespeichert. Beim Neuladen werden Eingaben zurückgesetzt.</footer></main></body></html>
