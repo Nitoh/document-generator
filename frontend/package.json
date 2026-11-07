@@ -7,15 +7,20 @@
     "build": "nuxt build",
     "preview": "nuxt preview --host 127.0.0.1",
     "postinstall": "nuxt prepare",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "generate": "nuxt generate",
+    "test": "vitest run"
   },
   "dependencies": {
+    "jspdf": "^4.2.1",
     "nuxt": "4.6.4",
     "vue": "^3.5.0",
-    "vue-router": "^4.5.0"
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "typescript": "^5.9.0",
+    "vitest": "^5.1.0",
     "vue-tsc": "^3.1.0"
   }
 }

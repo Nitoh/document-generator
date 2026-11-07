@@ -1,0 +1,71 @@
+name: Verify and publish Pages
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish the verified frontend to GitHub Pages
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: verify-pages-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: nitoh_tests
+          POSTGRES_USER: nitoh_tests
+          POSTGRES_PASSWORD: ci-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nitoh_tests -d nitoh_tests"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test backend/DocumentGenerator.sln -c Release
+        env:
+          TEST_DATABASE_CONNECTION: Host=localhost;Database=nitoh_tests;Username=nitoh_tests;Password=ci-test-only
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run typecheck && npm test
+        working-directory: frontend
+      - run: npm run generate
+        working-directory: frontend
+        env:
+          NUXT_APP_BASE_URL: /document-generator/
+          NUXT_PUBLIC_STORAGE_MODE: ${{ vars.PUBLIC_API_URL != '' && 'api' || 'local' }}
+          NUXT_PUBLIC_API_BASE: ${{ vars.PUBLIC_API_URL }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/.output/public
+  deploy:
+    if: github.ref == 'refs/heads/master' && (vars.PAGES_DEPLOY_ENABLED == 'true' || inputs.deploy == true)
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

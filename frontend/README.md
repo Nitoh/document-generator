@@ -1,35 +1,51 @@
-# Frontend: Nuxt
+# Nuxt – Letter Studio
 
-Ein echtes Nuxt-4-Projekt mit Vue, TypeScript und Nitro-Server. Kein statisches Ersatzfrontend im Backend.
+Die Oberfläche ist ein Nuxt-4-/Vue-/TypeScript-Projekt mit klar verteilten Verantwortlichkeiten. Es gibt keine große app.vue mit der gesamten Anwendung mehr.
 
-## Dateien verstehen
+## Verzeichnisstruktur
 
-- `package.json`: Nuxt/Vue-Abhängigkeiten und Befehle für Entwicklung, Typprüfung und Build.
-- `package-lock.json`: Fixiert die tatsächlich installierten Versionen für reproduzierbares `npm ci`.
-- `nuxt.config.ts`: Konfiguration, globale CSS-Datei, deutscher Seitentitel und private Backend-Adresse. Über `NUXT_BACKEND_URL` zur Laufzeit überschreibbar.
-- `tsconfig.json`: Verweist auf die von Nuxt erzeugten TypeScript-Konfigurationen.
-- `app/app.vue`: Oberfläche mit Composition API. `ref` hält reaktive Werte, `computed` ermittelt eindeutige Platzhalter, `watch` verwirft veraltete Ergebnisse. `v-model` verbindet Eingabefelder mit Zustand, `v-for` erzeugt die Felder und Vorlagenliste. `$fetch` sendet HTTP-Anfragen. Es gibt Lade-, Fehler- und Leerzustände. Gespeicherte Vorlagen lassen sich auswählen, ändern und löschen. Die Ergebnisausgabe verwendet Vue-Textinterpolation; Vorlagen werden niemals als Vue-Code oder HTML ausgeführt.
-- `app/assets/main.css`: Layout und Farben, Tastaturfokusse und einspaltiges Layout für schmale Ansichten.
-- `server/api/[...path].ts`: Nitro-Proxy leitet nur den API-Pfad an die konfigurierte Backend-Adresse weiter. Browser und Nuxt verwenden denselben Ursprung; dadurch brauchen wir keine großzügige CORS-Freigabe im Backend. Fachliche Logik bleibt in ASP.NET Core.
-- `README.md`: Diese Anleitung.
+- `app/app.vue`: Nur NuxtPage, der Einstieg in das Seitenrouting.
+- `app/pages/index.vue`: Orchestriert die Studio-Seite, Statusmeldungen und Exportaktionen.
+- `app/components/studio/StudioSidebar.vue`: Branding, Navigation, Vorlagenzugriff und Betriebsmodus.
+- `app/components/studio/LetterEditor.vue`: Vier zugängliche Tabs für Absender, Empfänger, Inhalt und Details; Tastaturwechsel mit Pfeiltasten.
+- `app/components/studio/TemplateLibrary.vue`: Native modale Vorlagenverwaltung mit Laden, Auswahl und Löschen.
+- `app/components/ui/FormField.vue`: Wiederverwendbares beschriftetes Eingabefeld mit Hinweisen und Längenbegrenzung.
+- `app/components/brand/NitohMark.vue`: Das einzige N im runden Logo; Schwarz und Sand. SVG-Datei zusätzlich unter public/.
+- `app/components/letter/LetterPage.vue`: Eine physische A4-Seite mit festem Briefaufbau.
+- `app/components/letter/LetterPreview.vue`: Responsive Skalierung und Aufteilung auf Briefseiten; zusätzliche native Druckfunktion mit Vorprüfung.
+- `app/composables/useLetterStudio.ts`: Reaktiver Zustand, API-Aufrufe, lokale Entwürfe und Vorlagenmodus; keine Layoutzeichnung.
+- `app/composables/useLetterPdf.ts`: Lädt die mitgelieferten Schriftdateien und PDF-Logik erst beim Export; Download- und Ladezustand.
+- `app/types/document.ts`: Gemeinsame TypeScript-Modelle.
+- `app/utils/template.ts`: Reine Platzhaltererkennung, Validierung und Ersetzung für den lokalen Browser-Modus. API-Modus nutzt zusätzlich den C#-Service.
+- `app/utils/letter.ts`: Standardentwurf, Datumsformatierung, Zeilenumbruch und Pagination. Keine Zeilen gehen zwischen Seiten verloren; der Abschluss bleibt zusammen.
+- `app/utils/pdf.ts`: Direkte PDF-Erstellung mit jsPDF, eingebetteter Schrift, Vektormonogramm, A4-Maßen und Prüfung überlanger Anschriftfelder.
+- `app/assets/main.css`: Oberfläche, Responsivität, Fokuszustände und reduzierte Animation.
+- `app/assets/letter.css`: Druckmaße, Briefschrift und Druckmedien-Regeln. A4 bleibt von der skalierten Bildschirmansicht unabhängig.
+- `app/assets/fonts/`: Carlito Regular/Bold und zugehörige OFL-Lizenz. Keine fremden Font-Dienste zur Laufzeit.
+- `server/api/[...path].ts`: Nitro-Proxy für den lokalen API-Betrieb. Auf GitHub Pages existiert dieser Server nicht; dort wird ausdrücklich lokaler Modus oder eine öffentliche API-Adresse verwendet.
+- `nuxt.config.ts`: Schrift-/CSS-Einbindung, Branding, Base-URL, private Backend-Adresse und öffentliche Betriebsparameter. Das interaktive Studio rendert im Browser (ssr:false), weil Entwurfsspeicher, Schriftmessung und Export browserseitig arbeiten.
+- `tests/letter.test.ts`, `tests/pdf.test.ts`: Vitest-Tests für Regeln, Umbruch, Seitenfolge, A4, eingebettete Schrift und Exportvalidierung.
+- `package.json`/`package-lock.json`: Befehle, Abhängigkeiten und reproduzierbare Installation. Vue Router ist auf die von Nuxt erwartete Hauptversion abgestimmt.
+- `tsconfig.json`, `vitest.config.ts`: Nuxt-Typkonfiguration und Tests.
 
-Nuxt/Nitro läuft als Frontend-Server, ASP.NET Core als einzelner Backend-Monolith. Das ist keine Aufteilung des Backends in Microservices.
-
-## Befehle
+## Lokal
 
 ```sh
 npm ci
 npm run dev
 npm run typecheck
+npm test
 npm run build
 ```
 
-Die API wird standardmäßig unter http://127.0.0.1:5080 erwartet. Browser: http://127.0.0.1:3000.
+Standard-API: http://127.0.0.1:5080. Alternative mit NUXT_BACKEND_URL. Entwürfe werden auf dem aktuellen Gerät gespeichert und sind in der Oberfläche entsprechend markiert.
 
-Produktionsbuild lokal starten:
+## Statischer Build
 
 ```sh
-HOST=127.0.0.1 PORT=3000 node .output/server/index.mjs
+NUXT_APP_BASE_URL=/document-generator/ NUXT_PUBLIC_STORAGE_MODE=local npm run generate
 ```
 
-Bei abweichendem Backend-Port `NUXT_BACKEND_URL` setzen. Voraussetzungen und Datenbankstart stehen in der [Hauptanleitung](../README.md).
+Ausgabe: `.output/public`. Ein statischer Server muss diesen Inhalt unter dem angegebenen Unterpfad ausliefern. Bei gehostetem Backend NUXT_PUBLIC_API_BASE auf dessen HTTPS-Ursprung setzen und NUXT_PUBLIC_STORAGE_MODE=api wählen.
+
+Weitere Einrichtung: [DEPLOYMENT.md](../DEPLOYMENT.md). Die aktuell vorbereitete Veröffentlichung ist noch deaktiviert.
