@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.nuxt/
+**/.output/
+**/.data/
+.env
+.env.*
+!.env.example
+artifacts/
+.DS_Store
