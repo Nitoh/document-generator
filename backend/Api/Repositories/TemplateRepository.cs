@@ -19,7 +19,7 @@ public class TemplateRepository(AppDbContext db)
         return template;
     }
 
-    public async Task<DocumentTemplate?> UpdateAsync(Guid id, string name, DocumentType type, string content, string? layoutJson, CancellationToken ct)
+    public async Task<DocumentTemplate?> UpdateAsync(Guid id, string name, DocumentType type, string content, string? layoutJson, string category, CancellationToken ct)
     {
         var template = await db.Templates.FirstOrDefaultAsync(t => t.Id == id, ct);
         if (template is null) return null;
@@ -27,6 +27,7 @@ public class TemplateRepository(AppDbContext db)
         template.Type = type;
         template.Content = content;
         template.LayoutJson = layoutJson;
+        template.Category = category;
         await db.SaveChangesAsync(ct);
         return template;
     }

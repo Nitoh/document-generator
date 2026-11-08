@@ -18,6 +18,13 @@ describe('print-ready PDF', () => {
     const pdf = createLetterPdf(createDraft().layout, Array(150).fill('Eine Zeile im mehrseitigen Brief.').join('\n'), fonts)
     expect(pdf.getNumberOfPages()).toBeGreaterThan(3)
   })
+  it('exports every simple layout and header combination as A4', () => {
+    for (const design of ['classic','minimal','line'] as const) for (const headerStyle of ['standard','compact','centered'] as const) {
+      const pdf = createLetterPdf({ ...createDraft().layout, design, headerStyle }, 'Ein wiederverwendbarer Brief.', fonts)
+      expect(pdf.getNumberOfPages()).toBe(1)
+      expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(210, 1)
+    }
+  })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout
     expect(() => createLetterPdf({ ...layout, recipientName: '' }, 'Text', fonts)).toThrow('vervollständige')

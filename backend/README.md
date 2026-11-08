@@ -63,3 +63,9 @@ GET `/api/health`; GET/POST `/api/templates`; GET/PUT/DELETE `/api/templates/{id
 ```
 
 Antwort: `{"content":"Hallo Erika!","fields":["Name"]}`. Platzhalternamen beachten Groß-/Kleinschreibung. Werte werden niemals erneut als Vorlage ausgewertet.
+
+## Kategorien und wiederverwendbare Bausteine
+
+`DocumentTemplate.Category` ist ein eigener, auf 80 Zeichen begrenzter Wert. `AddTemplateCategory` fügt die Spalte mit dem Default „Allgemeines“ hinzu; vorhandene Inhalte bleiben erhalten. Die DTOs nehmen Kategorie separat vom Layout an.
+
+`LetterLayout.Design` und `HeaderStyle` haben begrenzte erlaubte Ids und abwärtskompatible Defaults. `ClosingText` ergänzt einen optionalen Abschlussabsatz. Der DocumentService ersetzt Platzhalter auch in Betreff, Anschrift, Anrede und Abschluss; ersetzte Layoutwerte werden erneut gegen ihre Feldlängen geprüft. TemplateService speichert die ursprünglichen Bausteine samt Default-Auswahl, nicht die für einen Brief eingesetzten Werte.

@@ -40,3 +40,15 @@
   .page-scale { transform: none !important; width: 210mm !important; }
   .letter-page { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+.letter-page[data-design=minimal] .letter-sender strong { font-weight: 400; font-size: 12pt; }
+.letter-page[data-design=minimal] .letter-footer { border-top-color: transparent; }
+.letter-page[data-design=line] .letter-head { border-bottom: .3mm solid #bda783; height: 25mm; }
+.letter-page[data-design=line] .letter-footer { border-top-color: #bda783; }
+.letter-page[data-header=compact] .letter-sender { display: block; }
+.letter-page[data-header=compact] .letter-sender strong { display: block; font-size: 11pt; margin-bottom: 1mm; }
+.letter-page[data-header=compact] .letter-sender span { display: inline; }
+.letter-page[data-header=compact] .letter-sender span + span:before { content: ' · '; }
+.letter-page[data-header=centered] .letter-sender { text-align: center; align-items: center; margin: 0 auto; width: 120mm; max-width: 120mm; }
+.letter-page[data-header=centered] .letter-head .nitoh-mark { position: absolute; right: 0; top: 0; }
+
+.letter-closing .letter-closing-text { margin: 0 0 15pt; }

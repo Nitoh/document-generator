@@ -58,4 +58,34 @@ public class DocumentServiceTests
     {
         Template = "Hallo"
     }).Content);
+    [Fact]
+    public void RendersReusableLayoutFieldsAlongsideBody()
+    {
+        var result = documents.Generate(new GenerateDocumentRequest
+        {
+            Template = "Vertrag {{Nummer}}",
+            Layout = new LetterLayout { Subject = "Kündigung {{Nummer}}", Salutation = "Guten Tag {{Name}},", Closing = "{{Abschluss}}", ClosingText = "Antwort über {{Antwortweg}}", Design = "line", HeaderStyle = "centered" },
+            Values = new() { ["Nummer"] = "A-123", ["Name"] = "Alex", ["Abschluss"] = "Viele Grüße", ["Antwortweg"] = "E-Mail" }
+        });
+        Assert.Equal("Vertrag A-123", result.Content);
+        Assert.Equal("Guten Tag Alex,", result.Layout!.Salutation);
+        Assert.Equal("Kündigung A-123", result.Layout.Subject);
+        Assert.Equal("line", result.Layout.Design);
+        Assert.Equal("centered", result.Layout.HeaderStyle);
+        Assert.Equal("Antwort über E-Mail", result.Layout.ClosingText);
+        Assert.Contains("Abschluss", result.Fields);
+    }
+
+    [Fact]
+    public void RejectsMissingLayoutPlaceholderAndExcessiveRenderedLayoutLength()
+    {
+        Assert.Throws<ArgumentException>(() => documents.Generate(new GenerateDocumentRequest
+        {
+            Template = "Text", Layout = new LetterLayout { Salutation = "Hallo {{Name}}" }
+        }));
+        Assert.Throws<ArgumentException>(() => documents.Generate(new GenerateDocumentRequest
+        {
+            Template = "Text", Layout = new LetterLayout { Salutation = "{{Name}}" }, Values = new() { ["Name"] = new string('x', 161) }
+        }));
+    }
 }
