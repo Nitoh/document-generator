@@ -123,3 +123,38 @@ h2 { font-size: 20px; font-weight: 500; letter-spacing: -.6px; margin: 10px 0 0;
 @media (prefers-reduced-motion: reduce) { *, *:before, *:after { transition: none !important; scroll-behavior: auto !important; } }
 
 @media (max-width: 620px) { .new-draft .nav-text { display: none; } .sidebar nav { gap: 0; } .new-draft { justify-content: center; min-width: 32px; } }
+.form-field select { width: 100%; border: 1px solid #deded6; border-radius: 4px; background: #fdfdfb; color: #30302a; padding: 11px 12px; font: inherit; font-size: 12px; line-height: 1.5; }
+select:focus-visible { outline: 3px solid #a0834d; outline-offset: 3px; }
+.appearance-picker { border: 0; padding: 0; margin: 0; min-width: 0; }
+.appearance-picker legend { font-size: 10px; font-weight: 550; margin-bottom: 12px; color: #5c5b53; }
+.layout-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 18px; }
+.layout-option { position: relative; border: 1px solid var(--line); border-radius: 6px; padding: 12px; cursor: pointer; background: #fafaf7; min-width: 0; }
+.layout-option.selected { border-color: #a38d6a; background: #f5f0e6; box-shadow: 0 0 0 1px #a38d6a; }
+.layout-option > input { position: absolute; right: 9px; top: 9px; accent-color: #897354; }
+.layout-option strong { display: block; font-size: 11px; font-weight: 550; margin-top: 10px; }
+.layout-option small { display: block; font-size: 9px; line-height: 1.5; color: #928b7c; margin-top: 4px; }
+.layout-mini { display: block; width: 40px; height: 53px; background: #fff; border: 1px solid #ddd9d0; padding: 7px 5px; }
+.layout-mini i { display: block; width: 20px; border-top: 2px solid #4a493f; margin-bottom: 10px; }
+.layout-mini b { display: block; width: 24px; border-top: 2px solid #777368; margin-bottom: 4px; }
+.layout-mini > span { display: block; border-top: 1px solid #c4c0b5; margin-bottom: 3px; }
+.layout-mini[data-design=minimal] i { border-color: #aaa; width: 14px; border-width: 1px; }
+.layout-mini[data-design=line] i { border-color: #b49b73; width: 28px; }
+.template-metadata { display: grid; grid-template-columns: 190px 1fr; gap: 28px; padding: 22px; border: 1px solid var(--line); border-radius: 7px; background: #fff; margin-bottom: 22px; }
+.template-metadata .appearance-picker > .form-field { margin-bottom: 0; max-width: 350px; }
+.template-metadata .appearance-picker .field-hint { margin-top: 9px; }
+.builder-dialog, .template-archive { max-width: 760px; }
+.builder-dialog > form { margin-top: 24px; }
+.builder-dialog .appearance-picker { margin: 25px 0; border-top: 1px solid var(--line); padding-top: 22px; }
+.category-suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 22px; }
+.category-suggestions button, .archive-scopes button { border: 1px solid #ded8ca; background: #faf8f2; border-radius: 20px; padding: 7px 11px; font: inherit; font-size: 10px; color: #80745f; }
+.category-suggestions button[aria-pressed=true], .archive-scopes button[aria-pressed=true] { background: #292921; color: #f6f0e4; border-color: #292921; }
+.builder-summary { padding: 17px; background: #f6f3ec; border: 1px solid #e6decf; border-radius: 5px; }
+.builder-summary > span { font-size: 8px; letter-spacing: 1px; color: #9d9079; }
+.builder-summary p { font-size: 12px; }
+.builder-summary small { color: #928b7c; font-size: 10px; }
+.builder-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 26px; }
+.archive-tools { display: flex; align-items: flex-end; gap: 14px; margin: 24px 0; }
+.archive-tools > .form-field { flex: 1; margin: 0; }
+.archive-scopes { display: flex; gap: 8px; padding-bottom: 15px; border-bottom: 1px solid var(--line); margin-bottom: 15px; }
+.category-filter { margin-bottom: 15px; }
+@media(max-width:700px) { .template-metadata { grid-template-columns: 1fr; gap: 6px; padding: 18px; } .layout-option { padding: 10px 8px; } .layout-option small { font-size: 9px; } .archive-tools { align-items: stretch; flex-direction: column; } .builder-dialog, .template-archive { padding: 22px; } .builder-actions { flex-wrap: wrap; } .builder-actions .button { flex: 1; } }

@@ -49,3 +49,13 @@ NUXT_APP_BASE_URL=/document-generator/ NUXT_PUBLIC_STORAGE_MODE=local npm run ge
 Ausgabe: `.output/public`. Ein statischer Server muss diesen Inhalt unter dem angegebenen Unterpfad ausliefern. Bei gehostetem Backend NUXT_PUBLIC_API_BASE auf dessen HTTPS-Ursprung setzen und NUXT_PUBLIC_STORAGE_MODE=api wählen.
 
 Weitere Einrichtung: [DEPLOYMENT.md](../DEPLOYMENT.md). Die aktuell vorbereitete Veröffentlichung ist noch deaktiviert.
+
+## Vorlagenbaukasten und unabhängige Gestaltung
+
+- `app/data/template-presets.ts`: Bearbeitbare Starttexte, Kategorie-Vorschläge, Anreden, Abschlussabsätze, Grußformeln sowie voneinander unabhängige Layout-/Briefkopf-Kataloge. `buildTemplate` erstellt immer eine neue Kombination; Startvorlagen werden nicht überschrieben.
+- `StudioTemplateBuilder`: Zusammenstellen einer eigenen Vorlage vor der Bearbeitung im Studio.
+- `StudioAppearancePicker`: Gemeinsame Auswahl im Baukasten und im laufenden Brief. Ändert weder Kategorie noch Brieftext.
+- `StudioTemplateLibrary`: Suche, Kategorien sowie Quellenfilter für eigene und mitgelieferte Vorlagen.
+- `tests/templates.test.ts`: Kombinierbarkeit aller Layout-/Briefkopf-Varianten, unabhängige Startkopien und Platzhalter in Briefbausteinen.
+
+Kategorie wird getrennt von Inhalt und Gestaltung gespeichert. Alte lokale Vorlagen erhalten beim Laden „Allgemeines“ und die bisherigen Layout-Defaults. Neue Layout-Felder im JSON sind abwärtskompatibel. API- und Browser-Modus ersetzen Platzhalter in denselben Textfeldern; Layout-Ids werden nicht als Text interpretiert.

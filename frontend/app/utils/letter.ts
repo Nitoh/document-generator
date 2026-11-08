@@ -4,16 +4,17 @@ export function createDraft(): LetterDraft {
   const today = new Date()
   const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   return {
-    name: 'Terminbestätigung', type: 'Letter',
+    name: 'Terminbestätigung', category: 'Allgemeines', type: 'Letter',
     content: `vielen Dank für das freundliche Gespräch. Gerne bestätigen wir Ihnen den vereinbarten Termin am {{Datum}} um {{Uhrzeit}}.
 
 Wir freuen uns darauf, die nächsten Schritte gemeinsam mit Ihnen zu besprechen. Sollten Sie vorab Fragen haben, sind wir jederzeit gerne für Sie da.`,
     layout: {
+      design: 'classic', headerStyle: 'standard',
       senderName: 'Nitoh Studio', senderStreet: 'Musterstraße 12', senderPostalCode: '10115', senderCity: 'Berlin',
       senderEmail: 'hallo@example.com', senderPhone: '+49 30 123456',
       recipientName: 'Erika Musterfrau', recipientStreet: 'Beispielweg 8', recipientPostalCode: '20095', recipientCity: 'Hamburg',
       subject: 'Bestätigung unseres gemeinsamen Termins', salutation: 'Sehr geehrte Frau Musterfrau,',
-      closing: 'Mit freundlichen Grüßen', signature: 'Max Mustermann', city: 'Berlin', date,
+      closingText: '', closing: 'Mit freundlichen Grüßen', signature: 'Max Mustermann', city: 'Berlin', date,
       reference: 'NT-2026-001', footer: '', showLogo: true, showFoldMarks: true
     }
   }

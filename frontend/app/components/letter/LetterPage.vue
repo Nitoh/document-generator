@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { LetterLayout, LetterPageData } from '~/types/document'
 import { formatDate } from '~/utils/letter'
-defineProps<{ layout: LetterLayout; page: LetterPageData; number: number; total: number; subjectLines: string[]; salutationLines: string[]; closingLines: string[]; signatureLines: string[] }>()
+defineProps<{ layout: LetterLayout; page: LetterPageData; number: number; total: number; subjectLines: string[]; salutationLines: string[]; closingTextLines: string[]; closingLines: string[]; signatureLines: string[] }>()
 </script>
 <template>
-  <article class="letter-page" :class="{ continuation: !page.first }" :aria-label="`Briefseite ${number} von ${total}`">
+  <article class="letter-page" :data-design="layout.design" :data-header="layout.headerStyle" :class="{ continuation: !page.first }" :aria-label="`Briefseite ${number} von ${total}`">
     <template v-if="page.first">
       <header class="letter-head"><div class="letter-sender"><strong>{{ layout.senderName }}</strong><span>{{ layout.senderStreet }}</span><span>{{ layout.senderPostalCode }} {{ layout.senderCity }}</span></div><BrandNitohMark v-if="layout.showLogo" decorative /></header>
       <div class="letter-address"><div class="return-address">{{ [layout.senderName, layout.senderStreet, `${layout.senderPostalCode} ${layout.senderCity}`].filter(x => x.trim()).join(' · ') }}</div><div class="recipient"><span>{{ layout.recipientName }}</span><span>{{ layout.recipientStreet }}</span><span>{{ layout.recipientPostalCode }} {{ layout.recipientCity }}</span></div></div>
@@ -14,7 +14,7 @@ defineProps<{ layout: LetterLayout; page: LetterPageData; number: number; total:
     <section class="letter-writing">
       <template v-if="page.first"><h2 class="letter-subject"><span v-for="(line,index) in subjectLines" :key="index">{{ line || ' ' }}</span></h2><p class="letter-salutation"><span v-for="(line,index) in salutationLines" :key="index">{{ line || ' ' }}</span></p></template>
       <div class="letter-body"><div v-for="(line,index) in page.lines" :key="index" class="text-line">{{ line || ' ' }}</div></div>
-      <div v-if="page.last" class="letter-closing"><p><span v-for="(line,index) in closingLines" :key="index">{{ line || ' ' }}</span></p><p class="letter-signature"><span v-for="(line,index) in signatureLines" :key="index">{{ line || ' ' }}</span></p></div>
+      <div v-if="page.last" class="letter-closing"><p v-if="closingTextLines.length" class="letter-closing-text"><span v-for="(line,index) in closingTextLines" :key="index">{{ line || '\u00a0' }}</span></p><p><span v-for="(line,index) in closingLines" :key="index">{{ line || ' ' }}</span></p><p class="letter-signature"><span v-for="(line,index) in signatureLines" :key="index">{{ line || ' ' }}</span></p></div>
     </section>
     <template v-if="layout.showFoldMarks"><i class="fold-mark fold-one" /><i class="fold-mark fold-two" /><i class="fold-mark punch" /></template>
     <footer class="letter-footer"><span>{{ layout.footer }}</span><span>{{ number }} / {{ total }}</span></footer>

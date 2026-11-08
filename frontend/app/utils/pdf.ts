@@ -22,11 +22,12 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
   font()
   const lines = wrap(body)
   const salutation = wrap(layout.salutation)
+  const closingText = layout.closingText?.trim() ? wrap(layout.closingText) : []
   const closing = wrap(layout.closing)
   const signature = wrap(layout.signature)
   font(11, true)
   const subject = wrap(layout.subject)
-  const pages = paginateLines(lines, Math.max(10, 31 - subject.length - salutation.length - 3), 43, closing.length + signature.length + 4)
+  const pages = paginateLines(lines, Math.max(10, 31 - subject.length - salutation.length - 3), 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4)
   if (pages.length > 50) throw new Error('Der Brief ist zu lang. Bitte kürze ihn auf höchstens 50 Seiten.')
   const drawLines = (text: string[], x: number, y: number, height = lineHeight) => {
     text.forEach((line, index) => pdf.text(line, x, y + index * height))
@@ -36,13 +37,27 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
     if (index) pdf.addPage()
     pdf.setTextColor('#171715')
     if (page.first) {
-      font(13, true)
-      const senderName = wrap(layout.senderName, 140)
-      let y = drawLines(senderName, 25, 18, 4.4)
+      const header = layout.headerStyle || 'standard'
+      const centered = header === 'centered'
+      const headerX = centered ? 107.5 : 25
+      const headerWidth = centered ? 120 : 140
+      font(header === 'compact' ? 11 : layout.design === 'minimal' ? 12 : 13, layout.design !== 'minimal')
+      const headerLine = (text: string[], y: number) => {
+        text.forEach((line,index) => pdf.text(line, headerX, y + index * 4.4, centered ? { align: 'center' } : {}))
+        return y + text.length * 4.4
+      }
+      let y = headerLine(wrap(layout.senderName, headerWidth), 18)
       font(9)
-      y = drawLines(wrap(layout.senderStreet, 140), 25, y + 1, 4.4)
-      y = drawLines(wrap(`${layout.senderPostalCode} ${layout.senderCity}`, 140), 25, y, 4.4)
-      if (y > 41) throw new Error('Der Briefkopf ist zu lang. Bitte kürze die Absenderangaben.')
+      if (header === 'compact') {
+        y = headerLine(wrap(`${layout.senderStreet} · ${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y + 1)
+      } else {
+        y = headerLine(wrap(layout.senderStreet, headerWidth), y + 1)
+        y = headerLine(wrap(`${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y)
+      }
+      if (y > 39) throw new Error('Der Briefkopf ist zu lang. Bitte kürze die Absenderangaben.')
+      if (layout.design === 'line') {
+        pdf.setDrawColor('#bda783'); pdf.setLineWidth(.3); pdf.line(25, 39, 190, 39)
+      }
       if (layout.showLogo) {
         pdf.setFillColor('#171715'); pdf.circle(182, 22, 8, 'F')
         // Vector N, matching the SVG monogram; no rasterisation.
@@ -79,7 +94,9 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
     }
     font(); y = drawLines(page.lines, 25, y)
     if (page.last) {
-      y = drawLines(closing, 25, y + lineHeight)
+      y += lineHeight
+      if (closingText.length) y = drawLines(closingText, 25, y) + lineHeight
+      y = drawLines(closing, 25, y)
       drawLines(signature, 25, y + lineHeight * 2)
     }
     if (layout.showFoldMarks) {
@@ -89,7 +106,9 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
     font(7); pdf.setTextColor('#777469')
     const footer = wrap(layout.footer, 145)
     const footerY = 284 - (footer.length - 1) * 3.5
-    pdf.setDrawColor('#d8d4ca'); pdf.setLineWidth(.2); pdf.line(25, footerY - 4, 190, footerY - 4)
+    if (layout.design !== 'minimal') {
+      pdf.setDrawColor(layout.design === 'line' ? '#bda783' : '#d8d4ca'); pdf.setLineWidth(.2); pdf.line(25, footerY - 4, 190, footerY - 4)
+    }
     drawLines(footer, 25, footerY, 3.5)
     pdf.text(`${index + 1} / ${pages.length}`, 190, footerY, { align: 'right' })
   }

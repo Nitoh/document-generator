@@ -21,12 +21,13 @@ const measurements = computed(() => {
   const width = 165 * 96 / 25.4
   const body = wrapText(props.body, measure, width)
   const salutation = wrapText(props.layout.salutation, measure, width)
+  const closingText = props.layout.closingText?.trim() ? wrapText(props.layout.closingText, measure, width) : []
   const closing = wrapText(props.layout.closing, measure, width)
   const signature = wrapText(props.layout.signature, measure, width)
   if (context) context.font = 'bold 11pt "Nitoh Letter"'
   const subject = wrapText(props.layout.subject, measure, width)
   const firstCapacity = Math.max(10, 31 - subject.length - salutation.length - 3)
-  return { subject, salutation, closing, signature, pages: paginateLines(body, firstCapacity, 43, closing.length + signature.length + 4) }
+  return { subject, salutation, closingText, closing, signature, pages: paginateLines(body, firstCapacity, 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4) }
 })
 const pageHeight = 297 * 96 / 25.4
 function print(): string | null {
@@ -57,7 +58,7 @@ defineExpose({ print })
   <section class="preview-panel" aria-label="Briefvorschau">
     <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><span>{{ measurements.pages.length }} {{ measurements.pages.length === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
     <div ref="canvas" class="preview-canvas">
-      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="measurements.pages.length" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :signature-lines="measurements.signature" /></div></div>
+      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="measurements.pages.length" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" /></div></div>
     </div>
     <div class="preview-caption no-print"><span>↳ Layout orientiert an DIN 5008 · Form B</span><span>{{ ready ? 'Brief fertiggestellt' : 'Entwurf' }}</span></div>
   </section>

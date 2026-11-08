@@ -28,6 +28,13 @@ namespace DocumentGenerator.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasDefaultValue("Allgemeines");
+
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(20000)

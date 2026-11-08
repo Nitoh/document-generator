@@ -2,6 +2,16 @@
 
 Ein klassischer ASP.NET-Core-Monolith mit Nuxt-Frontend: professionelle Briefe gestalten, Vorlagen verwalten und A4-PDFs herunterladen. Schwarz, Sand und ein reduziertes N-Monogramm prägen die Oberfläche.
 
+## Wiederverwendbare Briefvorlagen
+
+„Neue Briefvorlage“ öffnet den Baukasten. Wähle einen Text-Ausgangspunkt (eigener Text, Kündigung, Vollmacht oder Anfrage), Namen und Kategorie, Layout, Briefkopf, Anrede, Abschlussabsatz und Grußformel. Danach bearbeitest du den Text und speicherst die Vorlage.
+
+„Meine Vorlagen“ enthält Suche, Kategorie-Filter sowie eigene und bearbeitbare Startvorlagen. Eigene Kategorien können frei eingegeben werden. Bestehende Vorlagen bleiben unter „Allgemeines“ erhalten.
+
+Die drei schlichten Layouts Klassisch, Minimal und Linie lassen sich mit allen drei Briefköpfen kombinieren. Die gespeicherte Auswahl ist nur der Default: beim Verwenden kannst du die Gestaltung unabhängig vom Text ändern. Erst erneutes Speichern ändert die Vorlage. Platzhalter funktionieren auch in Betreff, Anrede und Abschlussabsätzen. Die Werte werden bei jeder Verwendung neu eingegeben.
+
+[Prüfung dieser Erweiterung](VALIDATION-TEMPLATES.md).
+
 ## Lokal starten
 
 Voraussetzungen: .NET-10-SDK, Node.js 24 LTS und npm; PostgreSQL 18 lokal oder Docker Compose. Kein Python erforderlich.
@@ -69,7 +79,7 @@ npm test
 npm run build
 ```
 
-Ohne Datenbankvariable werden 14 Backend-Tests ausgeführt und der PostgreSQL-Test ausdrücklich übersprungen. Für alle 15 Tests `TEST_DATABASE_CONNECTION` auf eine eigene PostgreSQL-Testdatenbank setzen. Die Integration wendet Migrationen an, erzeugt eine eigene Testvorlage, startet die Anwendung neu, prüft CRUD und entfernt ihre Vorlage wieder. In CI läuft PostgreSQL als Service.
+Ohne Datenbankvariable werden 16 Backend-Tests ausgeführt und der PostgreSQL-Test ausdrücklich übersprungen. Für alle 17 Tests `TEST_DATABASE_CONNECTION` auf eine eigene PostgreSQL-Testdatenbank setzen. Die Integration wendet Migrationen an, erzeugt eine eigene Testvorlage, startet die Anwendung neu, prüft CRUD und entfernt ihre Vorlage wieder. In CI läuft PostgreSQL als Service.
 
 ## Brief- und Drucklayout
 

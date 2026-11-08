@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { salutations, closings, closingTexts } from '~/data/template-presets'
 import type { LetterDraft } from '~/types/document'
 const draft = defineModel<LetterDraft>('draft', { required: true })
 const values = defineModel<Record<string, string>>('values', { required: true })
@@ -34,6 +35,7 @@ function moveTab(event: KeyboardEvent, index: number) {
         <UiFormField id="recipient-name" v-model="draft.layout.recipientName" label="Empfänger / Unternehmen" :maxlength="160" />
         <UiFormField id="recipient-street" v-model="draft.layout.recipientStreet" label="Straße und Hausnummer" :maxlength="120" />
         <div class="field-row postal"><UiFormField id="recipient-postal" v-model="draft.layout.recipientPostalCode" label="Postleitzahl" :maxlength="20" /><UiFormField id="recipient-city" v-model="draft.layout.recipientCity" label="Ort" :maxlength="80" /></div>
+        <div class="form-field"><label for="salutation-preset">Anrede-Baustein wählen</label><select id="salutation-preset" :value="draft.layout.salutation" @change="draft.layout.salutation = ($event.target as HTMLSelectElement).value"><option :value="draft.layout.salutation">Eigene / aktuelle Anrede</option><option v-for="item in salutations" :key="item.id" :value="item.text">{{ item.label }}</option></select></div>
         <UiFormField id="salutation" v-model="draft.layout.salutation" label="Anrede" :maxlength="160" hint="Zum Beispiel: Sehr geehrte Frau Musterfrau," />
         <div class="editor-tip"><span>↳</span> Die Anschrift wird automatisch im Fensterbereich des Briefes platziert.</div>
         <button class="button next-button" @click="tab = 'content'">Weiter zum Brieftext <span>→</span></button>
@@ -49,12 +51,14 @@ function moveTab(event: KeyboardEvent, index: number) {
         <div class="section-caption"><span>ABSCHLUSS & FORMAT</span><span>04 / 04</span></div>
         <div class="field-row"><UiFormField id="letter-city" v-model="draft.layout.city" label="Ausstellungsort" :maxlength="80" /><UiFormField id="letter-date" v-model="draft.layout.date" label="Datum" type="date" :maxlength="10" /></div>
         <UiFormField id="reference" v-model="draft.layout.reference" label="Ihr Zeichen / Referenz (optional)" :maxlength="60" />
+        <div class="form-field"><label for="closing-text-preset">Abschlusstext wählen</label><select id="closing-text-preset" :value="draft.layout.closingText" @change="draft.layout.closingText = ($event.target as HTMLSelectElement).value"><option :value="draft.layout.closingText">Eigener / aktueller Text</option><option v-for="item in closingTexts" :key="item.id" :value="item.text">{{ item.label }}</option></select></div><UiFormField id="closing-text" v-model="draft.layout.closingText" label="Abschlussabsatz (optional)" multiline :rows="2" :maxlength="600" />
+        <div class="form-field"><label for="closing-preset">Abschluss-Baustein wählen</label><select id="closing-preset" :value="draft.layout.closing" @change="draft.layout.closing = ($event.target as HTMLSelectElement).value"><option :value="draft.layout.closing">Eigener / aktueller Abschluss</option><option v-for="item in closings" :key="item.id" :value="item.text">{{ item.label }}</option></select></div>
         <UiFormField id="closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
         <UiFormField id="signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
         <UiFormField id="footer" v-model="draft.layout.footer" label="Fußzeile (optional)" :maxlength="200" hint="Zum Beispiel Firmen- oder Registerangaben." />
         <label class="toggle-row"><span><strong>Falz- und Lochmarken</strong><small>Für Faltung und Ablage.</small></span><input v-model="draft.layout.showFoldMarks" type="checkbox" role="switch"></label>
       </template>
     </div>
-    <div class="editor-bottom"><span><span class="status-dot" /> A4 · Hochformat</span><button class="button dark" :disabled="busy" @click="$emit('generate')">{{ busy ? 'Brief wird erstellt …' : 'Brief fertigstellen' }} <span aria-hidden="true">↗</span></button></div>
+    <div class="editor-bottom"><span><span class="status-dot" /> A4 · Hochformat</span><button class="button dark" :disabled="busy" @click="$emit('generate')">{{ busy ? 'Bitte warten …' : 'Brief fertigstellen' }} <span aria-hidden="true">↗</span></button></div>
   </section>
 </template>

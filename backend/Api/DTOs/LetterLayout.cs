@@ -40,6 +40,9 @@ public sealed class LetterLayout
     [StringLength(160)]
     public string Salutation { get; init; } = string.Empty;
 
+    [StringLength(600)]
+    public string ClosingText { get; init; } = string.Empty;
+
     [StringLength(100)]
     public string Closing { get; init; } = string.Empty;
 
@@ -57,6 +60,12 @@ public sealed class LetterLayout
 
     [StringLength(200)]
     public string Footer { get; init; } = string.Empty;
+
+    [RegularExpression("^(classic|minimal|line)$")]
+    public string Design { get; init; } = "classic";
+
+    [RegularExpression("^(standard|compact|centered)$")]
+    public string HeaderStyle { get; init; } = "standard";
 
     public bool ShowLogo { get; init; } = true;
     public bool ShowFoldMarks { get; init; } = true;

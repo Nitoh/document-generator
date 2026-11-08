@@ -1,3 +1,4 @@
+import type { LetterLayout } from '~/types/document'
 const pattern = /\{\{\s*([\p{L}_][\p{L}\p{N}_]*)\s*\}\}/gu
 export function templateFields(text: string): string[] {
   return [...new Set([...text.matchAll(pattern)].map(match => match[1]!))]
@@ -14,4 +15,22 @@ export function renderTemplate(text: string, values: Record<string, string>): st
   const output = text.replace(pattern, (_, key: string) => values[key]!)
   if (output.length > 1000000) throw new Error('Das Dokument ist zu groß.')
   return output
+}
+
+export const layoutTextKeys = ['senderName', 'senderStreet', 'senderPostalCode', 'senderCity', 'senderEmail', 'senderPhone', 'recipientName', 'recipientStreet', 'recipientPostalCode', 'recipientCity', 'subject', 'salutation', 'closingText', 'closing', 'signature', 'city', 'date', 'reference', 'footer'] as const
+export function layoutFields(layout: LetterLayout): string[] {
+  return templateFields(layoutTextKeys.map(key => layout[key]).join('\n'))
+}
+const layoutLimits: Record<typeof layoutTextKeys[number], number> = {
+  senderName:120,senderStreet:120,senderPostalCode:20,senderCity:80,senderEmail:120,senderPhone:50,
+  recipientName:160,recipientStreet:120,recipientPostalCode:20,recipientCity:80,
+  subject:180,salutation:160,closingText:600,closing:100,signature:120,city:80,date:10,reference:60,footer:200
+}
+export function renderLayout(layout: LetterLayout, values: Record<string, string>): LetterLayout {
+  const rendered = { ...layout }
+  for (const key of layoutTextKeys) {
+    if (layout[key].trim()) rendered[key] = renderTemplate(layout[key], values)
+    if (rendered[key].length > layoutLimits[key]) throw new Error('Die eingesetzten Angaben sind für das gewählte Brieffeld zu lang.')
+  }
+  return rendered
 }
