@@ -158,3 +158,9 @@ select:focus-visible { outline: 3px solid #a0834d; outline-offset: 3px; }
 .archive-scopes { display: flex; gap: 8px; padding-bottom: 15px; border-bottom: 1px solid var(--line); margin-bottom: 15px; }
 .category-filter { margin-bottom: 15px; }
 @media(max-width:700px) { .template-metadata { grid-template-columns: 1fr; gap: 6px; padding: 18px; } .layout-option { padding: 10px 8px; } .layout-option small { font-size: 9px; } .archive-tools { align-items: stretch; flex-direction: column; } .builder-dialog, .template-archive { padding: 22px; } .builder-actions { flex-wrap: wrap; } .builder-actions .button { flex: 1; } }
+
+.designer-toolbar { margin-bottom: 18px; flex-wrap: wrap; }
+.designer-block { padding: 16px; margin: 14px 0; border: 1px solid var(--line); border-radius: 6px; }
+.attachment-option { display: block; padding: 8px 0; }
+.attachment-row { justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 0; }
+.attachment-row .document-actions { flex-wrap: wrap; }

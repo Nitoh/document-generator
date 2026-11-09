@@ -52,3 +52,9 @@
 .letter-page[data-header=centered] .letter-head .nitoh-mark { position: absolute; right: 0; top: 0; }
 
 .letter-closing .letter-closing-text { margin: 0 0 15pt; }
+
+.attachment-page { padding: 16mm 20mm 20mm 25mm; }
+.attachment-heading { font-size: 9pt; }
+.attachment-page h2 { font-size: 14pt; line-height: 15pt; letter-spacing: normal; margin: 4mm 0; }
+.attachment-page h2 span { display: block; }
+.attachment-page footer { position: absolute; bottom: 11mm; right: 20mm; font-size: 7pt; }

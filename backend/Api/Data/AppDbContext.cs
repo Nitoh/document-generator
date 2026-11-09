@@ -12,7 +12,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         var template = modelBuilder.Entity<DocumentTemplate>();
         template.Property(t => t.Name).HasMaxLength(200).IsRequired();
         template.Property(t => t.Content).HasMaxLength(20000).IsRequired();
-        template.Property(t => t.LayoutJson).HasMaxLength(10000);
         template.Property(t => t.Category).HasMaxLength(80).HasDefaultValue("Allgemeines").IsRequired();
         template.HasIndex(t => t.CreatedAt);
     }

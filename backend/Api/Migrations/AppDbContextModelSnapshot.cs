@@ -44,8 +44,7 @@ namespace DocumentGenerator.Api.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("LayoutJson")
-                        .HasMaxLength(10000)
-                        .HasColumnType("character varying(10000)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()

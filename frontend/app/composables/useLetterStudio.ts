@@ -1,4 +1,4 @@
-import type { DocumentTemplate, LetterDraft, LetterLayout } from '~/types/document'
+import type { DocumentTemplate, LetterDraft, LetterLayout, LetterAttachment } from '~/types/document'
 import { createDraft } from '~/utils/letter'
 import { renderTemplate, templateFields, validateTemplate, layoutFields, renderLayout, layoutTextKeys } from '~/utils/template'
 
@@ -18,8 +18,14 @@ export function useLetterStudio() {
   const draftStatus = ref('Entwurf wird vorbereitet')
   const rendered = ref<string | null>(null)
   const renderedLayout = ref<LetterLayout | null>(null)
-  const previewLayout = computed(() => renderedLayout.value ?? draft.layout)
-  const fields = computed(() => [...new Set([...templateFields(draft.content), ...layoutFields(draft.layout)])])
+  const extraAttachments = ref<LetterAttachment[]>([])
+  const effectiveLayout = computed(() => ({
+    ...draft.layout,
+    attachments: [...(draft.layout.attachments ?? []), ...extraAttachments.value]
+      .filter((item, index, all) => all.findIndex(other => other.id === item.id) === index)
+  }))
+  const previewLayout = computed(() => renderedLayout.value ?? effectiveLayout.value)
+  const fields = computed(() => [...new Set([...templateFields(draft.content), ...layoutFields(effectiveLayout.value)])])
   const previewBody = computed(() => rendered.value ?? draft.content)
   let revision = 0
   let ready = false
@@ -37,12 +43,12 @@ export function useLetterStudio() {
     draftStatus.value = 'Speichert Entwurf …'
     timer = setTimeout(() => {
       try {
-        localStorage.setItem(draftKey, JSON.stringify({ draft, values, selectedId: selectedId.value }))
+        localStorage.setItem(draftKey, JSON.stringify({ draft, values, extraAttachments: extraAttachments.value, selectedId: selectedId.value }))
         draftStatus.value = 'Entwurf auf diesem Gerät gespeichert'
       } catch { draftStatus.value = 'Entwurf kann auf diesem Gerät nicht gespeichert werden' }
     }, 350)
   }
-  watch([draft, values], () => {
+  watch([draft, values, extraAttachments], () => {
     revision++; rendered.value = null; renderedLayout.value = null; message.value = ''; saveDraft()
   }, { deep: true, flush: 'sync' })
   watch(selectedId, saveDraft)
@@ -62,6 +68,7 @@ export function useLetterStudio() {
       if (stored?.draft && typeof stored.draft.content === 'string' && stored.draft.layout) {
         Object.assign(draft, stored.draft, { layout: { ...createDraft().layout, ...stored.draft.layout } })
         if (stored.values && typeof stored.values === 'object') Object.assign(values, stored.values)
+        if (Array.isArray(stored.extraAttachments)) extraAttachments.value = stored.extraAttachments
         selectedId.value = typeof stored.selectedId === 'string' ? stored.selectedId : null
       }
     } catch { draftStatus.value = 'Neuer Entwurf' }
@@ -70,16 +77,19 @@ export function useLetterStudio() {
   })
   onBeforeUnmount(() => clearTimeout(timer))
   function choose(item: DocumentTemplate) {
+    extraAttachments.value = []
     revision++
     Object.assign(draft, { name: item.name, category: item.category || 'Allgemeines', type: item.type, content: item.content, layout: { ...createDraft().layout, ...item.layout } })
     selectedId.value = item.id.startsWith('starter:') ? null : item.id
     rendered.value = null; renderedLayout.value = null; error.value = ''; message.value = 'Vorlage geöffnet. Layout und Bausteine bleiben frei änderbar.'
   }
   function fresh() {
+    extraAttachments.value = []
     Object.assign(draft, createDraft())
     selectedId.value = null; rendered.value = null; error.value = ''; message.value = ''
   }
   function createTemplate(template: LetterDraft) {
+    extraAttachments.value = []
     Object.assign(draft, template)
     selectedId.value = null
     rendered.value = null; renderedLayout.value = null; error.value = ''; message.value = 'Neue Briefvorlage vorbereitet. Text und Platzhalter kannst du jetzt anpassen und speichern.'
@@ -92,6 +102,10 @@ export function useLetterStudio() {
     busy.value = true
     try {
       validateTemplate(draft.content)
+      for (const item of draft.layout.attachments ?? []) {
+        validateTemplate(item.title)
+        validateTemplate(item.content)
+      }
       for (const key of layoutTextKeys) if (draft.layout[key].trim()) validateTemplate(draft.layout[key])
       if (!draft.category.trim() || draft.category.trim().length > 80) throw new Error('Bitte wähle eine Kategorie.')
       let saved: DocumentTemplate
@@ -127,12 +141,13 @@ export function useLetterStudio() {
     try {
       // Validate locally for immediate feedback; API mode still uses the C# service.
       const local = renderTemplate(draft.content, values)
-      const layout = renderLayout(draft.layout, values)
-      const result = localMode ? { content: local, layout } : await request<{ content: string; layout: LetterLayout }>('/api/documents/generate', { method: 'POST', body: { template: draft.content, values, layout: draft.layout } })
+      if (effectiveLayout.value.attachments.length > 5) throw new Error('Ein Brief kann bis zu fünf Anlagen enthalten.')
+      const layout = renderLayout(effectiveLayout.value, values)
+      const result = localMode ? { content: local, layout } : await request<{ content: string; layout: LetterLayout }>('/api/documents/generate', { method: 'POST', body: { template: draft.content, values, layout: effectiveLayout.value } })
       if (result.content.length > 50000) throw new Error('Für die Briefvorschau sind maximal 50.000 Zeichen möglich. Bitte kürze den Text.')
       if (version === revision) { rendered.value = result.content; renderedLayout.value = result.layout; message.value = 'Dein Brief ist bereit für die Druckvorschau.' }
     } catch (cause) { if (version === revision) error.value = problem(cause) }
     finally { busy.value = false }
   }
-  return { draft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
+  return { draft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
 }

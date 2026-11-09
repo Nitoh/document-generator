@@ -19,7 +19,10 @@ export function renderTemplate(text: string, values: Record<string, string>): st
 
 export const layoutTextKeys = ['senderName', 'senderStreet', 'senderPostalCode', 'senderCity', 'senderEmail', 'senderPhone', 'recipientName', 'recipientStreet', 'recipientPostalCode', 'recipientCity', 'subject', 'salutation', 'closingText', 'closing', 'signature', 'city', 'date', 'reference', 'footer'] as const
 export function layoutFields(layout: LetterLayout): string[] {
-  return templateFields(layoutTextKeys.map(key => layout[key]).join('\n'))
+  return [...new Set([
+    ...layoutTextKeys.flatMap(key => templateFields(layout[key])),
+    ...(layout.attachments ?? []).flatMap(item => [...templateFields(item.title), ...templateFields(item.content)])
+  ])]
 }
 const layoutLimits: Record<typeof layoutTextKeys[number], number> = {
   senderName:120,senderStreet:120,senderPostalCode:20,senderCity:80,senderEmail:120,senderPhone:50,
@@ -32,5 +35,11 @@ export function renderLayout(layout: LetterLayout, values: Record<string, string
     if (layout[key].trim()) rendered[key] = renderTemplate(layout[key], values)
     if (rendered[key].length > layoutLimits[key]) throw new Error('Die eingesetzten Angaben sind für das gewählte Brieffeld zu lang.')
   }
+  rendered.attachments = (layout.attachments ?? []).map(item => {
+    const title = renderTemplate(item.title, values)
+    const content = renderTemplate(item.content, values)
+    if (title.length > 200 || content.length > 20000) throw new Error('Die ausgefüllte Anlage überschreitet die zulässige Länge.')
+    return { ...item, title, content }
+  })
   return rendered
 }
