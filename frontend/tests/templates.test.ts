@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildTemplate, designs, headerStyles, starterTemplates, salutations } from '../app/data/template-presets'
-import { layoutFields, renderLayout } from '../app/utils/template'
+import { layoutFields, previewLayout, previewText, renderLayout } from '../app/utils/template'
 
 describe('reusable templates', () => {
   it('supports every layout/header combination independently of the text preset', () => {
@@ -24,6 +24,18 @@ describe('reusable templates', () => {
     expect(draft.layout.salutation).toContain('{{Name}}')
     expect(rendered.design).toBe('line')
     expect(rendered.closingText).toBe('Antwort bitte über E-Mail.')
+  })
+  it('updates known values live in the letter and attached form without requiring the remaining fields', () => {
+    const draft = starterTemplates()[0]!
+    draft.layout.salutation = 'Guten Tag {{Name}},'
+    draft.layout.attachments = [{ id: 'agb', title: 'Vertrag {{Vertragsnummer}}', content: 'Für {{Name}} ab {{Datum}}' }]
+    const values = { Name: 'Alex', Vertragsnummer: 'A-123' }
+    expect(previewText(draft.content, values)).toContain('A-123')
+    expect(previewText(draft.content, values)).toContain('{{Kündigungsdatum}}')
+    const layout = previewLayout(draft.layout, values)
+    expect(layout.salutation).toBe('Guten Tag Alex,')
+    expect(layout.attachments?.[0]).toMatchObject({ title: 'Vertrag A-123', content: 'Für Alex ab {{Datum}}' })
+    expect(draft.layout.salutation).toBe('Guten Tag {{Name}},')
   })
   it('creates independent starter copies with categories', () => {
     const first = starterTemplates()

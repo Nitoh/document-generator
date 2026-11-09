@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { LetterLayout } from '~/types/document'
 import { attachmentPages, paginateLines, wrapText } from '~/utils/letter'
-const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean }>()
+const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean; attachmentOnly?: boolean }>()
+const showAttachments = ref(false)
 const mounted = ref(false)
 const container = useTemplateRef<HTMLElement>('canvas')
 const scale = ref(.75)
@@ -28,7 +29,7 @@ const measurements = computed(() => {
   if (context) context.font = 'bold 11pt "Nitoh Letter"'
   const subject = wrapText(props.layout.subject, measure, width)
   const firstCapacity = Math.max(10, 31 - subject.length - salutation.length - 3)
-  return { annexes, subject, salutation, closingText, closing, signature, pages: paginateLines(body, firstCapacity, 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4) }
+  return { annexes, subject, salutation, closingText, closing, signature, pages: props.attachmentOnly ? [] : paginateLines(body, firstCapacity, 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4 + (props.layout.signatureImage ? 4 : 0)) }
 })
 const total = computed(() => measurements.value.pages.length + measurements.value.annexes.length)
 const pageHeight = 297 * 96 / 25.4
@@ -58,21 +59,22 @@ function print(): string | null {
 defineExpose({ print })
 </script>
 <template>
-  <section class="preview-panel" aria-label="Briefvorschau">
-    <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><span>{{ total }} {{ total === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
+  <section class="preview-panel" :aria-label="attachmentOnly ? 'Formularvorschau' : 'Briefvorschau'">
+    <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><button v-if="measurements.annexes.length && !attachmentOnly" class="button subtle" :aria-expanded="showAttachments" @click="showAttachments = !showAttachments">{{ showAttachments ? 'Anlagen ausblenden' : `Anlagen anzeigen (${layout.attachments?.length})` }}</button><span>{{ total }} {{ total === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
     <div ref="canvas" class="preview-canvas">
       <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="total" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" /></div></div>
-      <div v-for="(page,index) in measurements.annexes" :key="`attachment-${index}`" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }">
+      <div v-for="(page,index) in measurements.annexes" :key="`attachment-${index}`" class="page-frame" :class="{ 'attachment-collapsed': !showAttachments && !attachmentOnly }" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }">
         <div class="page-scale" :style="{ transform: `scale(${scale})` }">
           <article class="letter-page attachment-page" :aria-label="`Anlage ${page.number}`">
             <div class="attachment-heading">Anlage {{ page.number }}{{ page.continued ? ' · Fortsetzung' : '' }}</div>
             <h2><span v-for="(line, lineIndex) in page.title" :key="lineIndex">{{ line }}</span></h2>
+            <img v-if="page.image" class="attachment-image" :src="page.image.data" alt="">
             <div v-for="(line,lineIndex) in page.lines" :key="lineIndex" class="text-line">{{ line || ' ' }}</div>
             <footer>{{ measurements.pages.length + index + 1 }} / {{ total }}</footer>
           </article>
         </div>
       </div>
     </div>
-    <div class="preview-caption no-print"><span>↳ Layout orientiert an DIN 5008 · Form B</span><span>{{ ready ? 'Brief fertiggestellt' : 'Entwurf' }}</span></div>
+    <div v-if="!attachmentOnly" class="preview-caption no-print"><span>↳ Layout orientiert an DIN 5008 · Form B</span><span>{{ ready ? 'Brief fertiggestellt' : 'Entwurf' }}</span></div>
   </section>
 </template>

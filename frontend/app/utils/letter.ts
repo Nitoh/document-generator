@@ -66,12 +66,14 @@ export function attachmentPages(
   return attachments.flatMap((item, index) => {
     const lines = wrapText(item.content, measure, width)
     const title = wrapText(item.title, measure, width * 0.78)
-    const capacity = 42 - title.length
-    return Array.from({ length: Math.ceil(lines.length / capacity) }, (_, page) => ({
-      number: index + 1,
-      title,
-      continued: page > 0,
-      lines: lines.slice(page * capacity, (page + 1) * capacity)
-    }))
+    const pages = []
+    let offset = 0
+    do {
+      const image = offset === 0 ? item.image : null
+      const capacity = Math.max(1, 42 - title.length - (image ? 7 : 0))
+      pages.push({ number: index + 1, title, continued: offset > 0, lines: lines.slice(offset, offset + capacity), image })
+      offset += capacity
+    } while (offset < lines.length)
+    return pages
   })
 }

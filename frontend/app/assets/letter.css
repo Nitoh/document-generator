@@ -58,3 +58,8 @@
 .attachment-page h2 { font-size: 14pt; line-height: 15pt; letter-spacing: normal; margin: 4mm 0; }
 .attachment-page h2 span { display: block; }
 .attachment-page footer { position: absolute; bottom: 11mm; right: 20mm; font-size: 7pt; }
+
+.letter-head .letter-logo-image { width: 26mm; height: 22mm; object-fit: contain; object-position: top right; position: absolute; right: 0; top: 0; }
+.letter-signature-image { display: block; width: 50mm; height: 18mm; object-fit: contain; object-position: left center; margin-top: 1mm; }
+.attachment-image { display: block; width: 55mm; height: 30mm; object-fit: contain; object-position: left center; margin-bottom: 4mm; }
+@media screen { .attachment-collapsed { display: none; } }

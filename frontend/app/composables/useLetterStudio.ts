@@ -1,6 +1,6 @@
 import type { DocumentTemplate, LetterDraft, LetterLayout, LetterAttachment } from '~/types/document'
 import { createDraft } from '~/utils/letter'
-import { renderTemplate, templateFields, validateTemplate, layoutFields, renderLayout, layoutTextKeys } from '~/utils/template'
+import { renderTemplate, templateFields, validateTemplate, layoutFields, renderLayout, layoutTextKeys, previewText, previewLayout as renderPreviewLayout } from '~/utils/template'
 
 const draftKey = 'nitoh.letter-draft.v1'
 const templatesKey = 'nitoh.letter-templates.v1'
@@ -15,6 +15,7 @@ export function useLetterStudio() {
   const loading = ref(false)
   const message = ref('')
   const error = ref('')
+  const hasDraft = ref(false)
   const draftStatus = ref('Entwurf wird vorbereitet')
   const rendered = ref<string | null>(null)
   const renderedLayout = ref<LetterLayout | null>(null)
@@ -24,9 +25,9 @@ export function useLetterStudio() {
     attachments: [...(draft.layout.attachments ?? []), ...extraAttachments.value]
       .filter((item, index, all) => all.findIndex(other => other.id === item.id) === index)
   }))
-  const previewLayout = computed(() => renderedLayout.value ?? effectiveLayout.value)
+  const previewLayout = computed(() => renderedLayout.value ?? renderPreviewLayout(effectiveLayout.value, values))
   const fields = computed(() => [...new Set([...templateFields(draft.content), ...layoutFields(effectiveLayout.value)])])
-  const previewBody = computed(() => rendered.value ?? draft.content)
+  const previewBody = computed(() => rendered.value ?? previewText(draft.content, values))
   let revision = 0
   let ready = false
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -58,7 +59,7 @@ export function useLetterStudio() {
     try {
       templates.value = localMode
         ? (JSON.parse(localStorage.getItem(templatesKey) || '[]') as DocumentTemplate[]).map(item => ({ ...item, category: item.category || 'Allgemeines' }))
-        : await request<DocumentTemplate[]>('/api/templates')
+        : (await request<DocumentTemplate[]>('/api/templates')).map(item => ({ ...item, layout: { ...createDraft().layout, ...item.layout } }))
     } catch (cause) { error.value = problem(cause) }
     finally { loading.value = false }
   }
@@ -66,22 +67,26 @@ export function useLetterStudio() {
     try {
       const stored = JSON.parse(localStorage.getItem(draftKey) || 'null')
       if (stored?.draft && typeof stored.draft.content === 'string' && stored.draft.layout) {
+        hasDraft.value = true
         Object.assign(draft, stored.draft, { layout: { ...createDraft().layout, ...stored.draft.layout } })
         if (stored.values && typeof stored.values === 'object') Object.assign(values, stored.values)
         if (Array.isArray(stored.extraAttachments)) extraAttachments.value = stored.extraAttachments
         selectedId.value = typeof stored.selectedId === 'string' ? stored.selectedId : null
       }
     } catch { draftStatus.value = 'Neuer Entwurf' }
-    ready = true; saveDraft()
+    ready = true
     await loadTemplates()
   })
   onBeforeUnmount(() => clearTimeout(timer))
   function choose(item: DocumentTemplate) {
+    hasDraft.value = true
+    for (const key of Object.keys(values)) delete values[key]
     extraAttachments.value = []
     revision++
     Object.assign(draft, { name: item.name, category: item.category || 'Allgemeines', type: item.type, content: item.content, layout: { ...createDraft().layout, ...item.layout } })
     selectedId.value = item.id.startsWith('starter:') ? null : item.id
     rendered.value = null; renderedLayout.value = null; error.value = ''; message.value = 'Vorlage geöffnet. Layout und Bausteine bleiben frei änderbar.'
+    saveDraft()
   }
   function fresh() {
     extraAttachments.value = []
@@ -95,29 +100,29 @@ export function useLetterStudio() {
     rendered.value = null; renderedLayout.value = null; error.value = ''; message.value = 'Neue Briefvorlage vorbereitet. Text und Platzhalter kannst du jetzt anpassen und speichern.'
     for (const key of Object.keys(values)) delete values[key]
   }
-  async function saveTemplate() {
+  async function saveTemplate(template: LetterDraft, id: string | null): Promise<DocumentTemplate | undefined> {
     if (busy.value) return
     error.value = ''; message.value = ''
-    if (!draft.name.trim()) { error.value = 'Bitte gib der Vorlage einen Namen.'; return }
+    if (!template.name.trim()) { error.value = 'Bitte gib der Vorlage einen Namen.'; return }
     busy.value = true
     try {
-      validateTemplate(draft.content)
-      for (const item of draft.layout.attachments ?? []) {
+      validateTemplate(template.content)
+      for (const item of template.layout.attachments ?? []) {
         validateTemplate(item.title)
         validateTemplate(item.content)
       }
-      for (const key of layoutTextKeys) if (draft.layout[key].trim()) validateTemplate(draft.layout[key])
-      if (!draft.category.trim() || draft.category.trim().length > 80) throw new Error('Bitte wähle eine Kategorie.')
+      for (const key of layoutTextKeys) if (template.layout[key].trim()) validateTemplate(template.layout[key])
+      if (!template.category.trim() || template.category.trim().length > 80) throw new Error('Bitte wähle eine Kategorie.')
       let saved: DocumentTemplate
       if (localMode) {
-        saved = { ...JSON.parse(JSON.stringify(draft)), id: selectedId.value || crypto.randomUUID(), createdAt: templates.value.find(t => t.id === selectedId.value)?.createdAt || new Date().toISOString() }
+        saved = { ...JSON.parse(JSON.stringify(template)), id: id || crypto.randomUUID(), createdAt: templates.value.find(t => t.id === id)?.createdAt || new Date().toISOString() }
         const next = [saved, ...templates.value.filter(t => t.id !== saved.id)]
         localStorage.setItem(templatesKey, JSON.stringify(next)); templates.value = next
       } else {
-        saved = await request<DocumentTemplate>(selectedId.value ? `/api/templates/${selectedId.value}` : '/api/templates', { method: selectedId.value ? 'PUT' : 'POST', body: draft })
+        saved = await request<DocumentTemplate>(id ? `/api/templates/${id}` : '/api/templates', { method: id ? 'PUT' : 'POST', body: template })
         await loadTemplates()
       }
-      selectedId.value = saved.id; message.value = 'Vorlage gespeichert.'
+      return saved
     } catch (cause) { error.value = problem(cause) }
     finally { busy.value = false }
   }
@@ -149,5 +154,5 @@ export function useLetterStudio() {
     } catch (cause) { if (version === revision) error.value = problem(cause) }
     finally { busy.value = false }
   }
-  return { draft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
+  return { draft, hasDraft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
 }

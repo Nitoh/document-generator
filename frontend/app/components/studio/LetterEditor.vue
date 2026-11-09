@@ -16,7 +16,7 @@ function moveTab(event: KeyboardEvent, index: number) {
 </script>
 <template>
   <section class="editor-panel no-print" aria-label="Brief bearbeiten">
-    <div class="editor-heading"><div><span class="eyebrow">DEIN ENTWURF</span><h2>Die richtigen Details.</h2></div><span class="edit-symbol" aria-hidden="true">↗</span></div>
+    <div class="editor-heading"><div><span class="eyebrow">DEIN ENTWURF</span><h2>Brief ausfüllen</h2></div><span class="edit-symbol" aria-hidden="true">↗</span></div>
     <div class="editor-tabs" role="tablist" aria-label="Briefabschnitte">
       <button v-for="(item,index) in tabs" :id="`tab-${item.id}`" :key="item.id" role="tab" :aria-selected="tab === item.id" :aria-controls="`panel-${item.id}`" :tabindex="tab === item.id ? 0 : -1" @click="tab = item.id" @keydown="moveTab($event,index)"><span>{{ item.number }}</span>{{ item.title }}</button>
     </div>
@@ -27,7 +27,8 @@ function moveTab(event: KeyboardEvent, index: number) {
         <UiFormField id="sender-street" v-model="draft.layout.senderStreet" label="Straße und Hausnummer" :maxlength="120" />
         <div class="field-row postal"><UiFormField id="sender-postal" v-model="draft.layout.senderPostalCode" label="Postleitzahl" :maxlength="20" /><UiFormField id="sender-city" v-model="draft.layout.senderCity" label="Ort" :maxlength="80" /></div>
         <div class="field-row"><UiFormField id="sender-email" v-model="draft.layout.senderEmail" label="E-Mail (optional)" type="email" :maxlength="120" /><UiFormField id="sender-phone" v-model="draft.layout.senderPhone" label="Telefon (optional)" type="tel" :maxlength="50" /></div>
-        <label class="toggle-row"><span><strong>Nitoh-Logo im Briefkopf</strong><small>Schwarz & Sand. Bewusst reduziert.</small></span><input v-model="draft.layout.showLogo" type="checkbox" role="switch"></label>
+        <label class="toggle-row"><span><strong>Nitoh-Logo im Briefkopf</strong><small>Wird verwendet, wenn kein eigenes Logo eingesetzt ist.</small></span><input v-model="draft.layout.showLogo" type="checkbox" role="switch"></label>
+        <StudioImageField v-model="draft.layout.logoImage" label="Eigenes Logo" />
         <button class="button next-button" @click="tab = 'recipient'">Weiter zum Empfänger <span>→</span></button>
       </template>
       <template v-else-if="tab === 'recipient'">
@@ -55,6 +56,7 @@ function moveTab(event: KeyboardEvent, index: number) {
         <div class="form-field"><label for="closing-preset">Abschluss-Baustein wählen</label><select id="closing-preset" :value="draft.layout.closing" @change="draft.layout.closing = ($event.target as HTMLSelectElement).value"><option :value="draft.layout.closing">Eigener / aktueller Abschluss</option><option v-for="item in closings" :key="item.id" :value="item.text">{{ item.label }}</option></select></div>
         <UiFormField id="closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
         <UiFormField id="signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
+        <StudioImageField v-model="draft.layout.signatureImage" label="Unterschrift" />
         <UiFormField id="footer" v-model="draft.layout.footer" label="Fußzeile (optional)" :maxlength="200" hint="Zum Beispiel Firmen- oder Registerangaben." />
         <label class="toggle-row"><span><strong>Falz- und Lochmarken</strong><small>Für Faltung und Ablage.</small></span><input v-model="draft.layout.showFoldMarks" type="checkbox" role="switch"></label>
       </template>
