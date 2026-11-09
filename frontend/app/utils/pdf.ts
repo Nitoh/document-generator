@@ -50,11 +50,18 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
       if (!line.text) continue
       font(11, line.format.bold)
       const width = pdf.getTextWidth(line.text)
-      const available = Math.max(0, 165 - line.indent - width)
+      const available = Math.max(0, 165 - line.indent - line.rightIndent - width)
       const x = 25 + line.indent + (line.format.align === 'center' ? available / 2 : line.format.align === 'right' ? available : 0)
       if (line.format.italic) {
         pdf.advancedAPI(() => { pdf.text(line.text, x, baseline, {}, pdf.Matrix(1, 0, -.22, 1, 0, 0)) })
       } else pdf.text(line.text, x, baseline)
+      if (line.format.underline) {
+        pdf.saveGraphicsState()
+        pdf.setDrawColor('#171715')
+        pdf.setLineWidth(.18)
+        pdf.line(x, baseline + .7, x + width, baseline + .7)
+        pdf.restoreGraphicsState()
+      }
     }
     return y
   }

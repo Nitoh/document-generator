@@ -12,6 +12,11 @@ public sealed class TextBlockFormat
     public double Tabs { get; init; }
     [Range(0, 50)]
     public double Before { get; init; }
+    [Range(0, 135)]
+    public double? RightIndent { get; init; }
+    [Range(0, 50)]
+    public double? After { get; init; }
+    public bool? Underline { get; init; }
     public bool Bold { get; init; }
     public bool Italic { get; init; }
 }

@@ -53,6 +53,14 @@ describe('print-ready PDF', () => {
     expect(pdf.getNumberOfPages()).toBe(1)
     expect(pdf.output()).toContain('/FontFile2')
   })
+  it('uses right indent to wrap a block and keeps the requested space after it', () => {
+    const style = { ...defaultFormat(), indent: 10, rightIndent: 100, after: 7, underline: true }
+    const lines = formatBody('Alpha Bravo', [style], text => text.length * 6)
+    const content = lines.filter(line => line.text)
+    expect(content.map(line => line.text)).toEqual(['Alpha', 'Bravo'])
+    expect(content.every(line => line.rightIndent === 100 && line.format.underline)).toBe(true)
+    expect(lines.filter(line => !line.text).reduce((total, line) => total + line.height, 0)).toBe(7)
+  })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout
     expect(() => createLetterPdf({ ...layout, recipientName: '' }, 'Text', fonts)).toThrow('vervollständige')

@@ -6,16 +6,22 @@ export const blockWidthMm = 165
 export function defaultFormat(bold = false): TextBlockFormat {
   return { align: 'left', indent: 0, tabs: 0, before: 0, bold, italic: false }
 }
-export interface FormattedLine { text: string; format: TextBlockFormat; indent: number; height: number }
+export interface FormattedLine { text: string; format: TextBlockFormat; indent: number; rightIndent: number; height: number }
 type Measure = (text: string, format: TextBlockFormat) => number
 export function splitBlocks(text: string) { return text.split(/\r?\n[ \t]*\r?\n/) }
 export function formatLines(text: string, format: TextBlockFormat | null | undefined, measure: Measure, bold = false): FormattedLine[] {
   const style = format ?? defaultFormat(bold)
   const indent = Math.min(135, Math.max(0, Number(style.indent || 0) + Number(style.tabs || 0) * tabMm))
-  const blank = { text: '', format: style, indent, height: lineHeightMm }
-  const before = Math.min(50, Math.max(0, Number(style.before) || 0))
-  const lines = wrapText(text, value => measure(value, style), blockWidthMm - indent)
-  return [...Array.from({ length: Math.ceil(before / lineHeightMm) }, (_, index) => ({ ...blank, height: Math.min(lineHeightMm, before - index * lineHeightMm) })), ...lines.map(value => ({ ...blank, text: value }))]
+  const rightIndent = Math.min(135 - indent, Math.max(0, Number(style.rightIndent) || 0))
+  const blank = { text: '', format: style, indent, rightIndent, height: lineHeightMm }
+  function spacing(value?: number) {
+    const amount = Math.min(50, Math.max(0, Number(value) || 0))
+    return Array.from({ length: Math.ceil(amount / lineHeightMm) }, (_, index) => ({
+      ...blank, height: Math.min(lineHeightMm, amount - index * lineHeightMm)
+    }))
+  }
+  const lines = wrapText(text, value => measure(value, style), blockWidthMm - indent - rightIndent)
+  return [...spacing(style.before), ...lines.map(value => ({ ...blank, text: value })), ...spacing(style.after)]
 }
 export function formatBody(text: string, formats: (TextBlockFormat | null)[] | undefined, measure: Measure): FormattedLine[] {
   if (!formats?.some(Boolean)) return formatLines(text, undefined, measure)

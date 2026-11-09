@@ -45,21 +45,21 @@ function move(index: number, direction: number) {
     <UiFormField id="template-name" v-model="draft.name" label="Vorlagenname" :maxlength="200" />
     <StudioCategoryField id="template-category" v-model="draft.category" :categories="categories" />
     <StudioAppearancePicker v-model:design="draft.layout.design" v-model:header="draft.layout.headerStyle" id-prefix="designer" />
-    <UiFormField id="default-subject" v-model="draft.layout.subject" label="Betreff" :maxlength="180" />
     <StudioTextFormatField label="Betreff" protected-block bold :model-value="draft.layout.sectionFormats?.subject" @update:model-value="setSectionFormat('subject', $event)" />
+    <UiFormField id="default-subject" v-model="draft.layout.subject" label="Betreff" :maxlength="180" />
     <label class="form-field">Anrede-Voreinstellung
       <select :value="salutations.some(item => item.text === draft.layout.salutation) ? draft.layout.salutation : ''" @change="draft.layout.salutation = ($event.target as HTMLSelectElement).value">
         <option value="">Eigene Anrede</option><option v-for="item in salutations" :key="item.id" :value="item.text">{{ item.label }}</option>
       </select>
     </label>
-    <UiFormField id="default-salutation" v-model="draft.layout.salutation" label="Anrede" :maxlength="160" />
     <StudioTextFormatField label="Anrede" protected-block :model-value="draft.layout.sectionFormats?.salutation" @update:model-value="setSectionFormat('salutation', $event)" />
+    <UiFormField id="default-salutation" v-model="draft.layout.salutation" label="Anrede" :maxlength="160" />
     <h2>Brieftext</h2>
     <p class="muted">Änderungen erscheinen sofort in der Vorschau. Verwende Platzhalter wie <code v-text="'{{Name}}'" /> für Angaben pro Brief.</p>
     <div class="archive-tools"><div class="form-field"><label for="snippet">Textbaustein</label><select id="snippet" v-model="preset"><option v-for="(_, name) in snippets" :key="name">{{ name }}</option></select></div><button class="button subtle" @click="addBlock">Baustein hinzufügen</button></div>
     <div v-for="(block, index) in blocks" :key="block.id" class="designer-block">
-      <UiFormField :id="`block-${block.id}`" v-model="block.text" :label="`Baustein ${index + 1}`" multiline :rows="3" :maxlength="20000" />
       <StudioTextFormatField v-model="block.format" :label="`Baustein ${index + 1}`" />
+      <UiFormField :id="`block-${block.id}`" v-model="block.text" :label="`Baustein ${index + 1}`" multiline :rows="3" :maxlength="20000" />
       <div class="document-actions">
         <button class="button subtle" :disabled="index === 0" :aria-label="`Baustein ${index + 1} nach oben`" @click="move(index, -1)">↑</button>
         <button class="button subtle" :disabled="index === blocks.length - 1" :aria-label="`Baustein ${index + 1} nach unten`" @click="move(index, 1)">↓</button>
@@ -74,15 +74,15 @@ function move(index: number, direction: number) {
     <label class="form-field">Abschlussabsatz wählen
       <select v-model="draft.layout.closingText"><option v-for="item in closingTexts" :key="item.id" :value="item.text">{{ item.label }}</option></select>
     </label>
-    <UiFormField id="default-closing-text" v-model="draft.layout.closingText" label="Abschlussabsatz" multiline :rows="2" :maxlength="600" />
     <StudioTextFormatField label="Abschlussabsatz" protected-block :model-value="draft.layout.sectionFormats?.closingText" @update:model-value="setSectionFormat('closingText', $event)" />
+    <UiFormField id="default-closing-text" v-model="draft.layout.closingText" label="Abschlussabsatz" multiline :rows="2" :maxlength="600" />
     <label class="form-field">Grußformel wählen
       <select v-model="draft.layout.closing"><option v-for="item in closings" :key="item.id" :value="item.text">{{ item.label }}</option></select>
     </label>
-    <UiFormField id="default-closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
     <StudioTextFormatField label="Grußformel" protected-block :model-value="draft.layout.sectionFormats?.closing" @update:model-value="setSectionFormat('closing', $event)" />
-    <UiFormField id="default-signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
+    <UiFormField id="default-closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
     <StudioTextFormatField label="Unterschrift" protected-block :model-value="draft.layout.sectionFormats?.signature" @update:model-value="setSectionFormat('signature', $event)" />
+    <UiFormField id="default-signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
     <StudioImageField v-model="draft.layout.logoImage" role="logo" label="Logo im Briefkopf" />
     <StudioImageField v-model="draft.layout.signatureImage" role="signature" label="Unterschrift" />
   </section>

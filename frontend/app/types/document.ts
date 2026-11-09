@@ -4,6 +4,7 @@ export type HeaderStyle = 'standard' | 'compact' | 'centered'
 export type BlockAlignment = 'left' | 'center' | 'right'
 export interface TextBlockFormat {
   align: BlockAlignment; indent: number; tabs: number; before: number; bold: boolean; italic: boolean
+  rightIndent?: number; after?: number; underline?: boolean
 }
 export type LetterSection = 'subject' | 'salutation' | 'closingText' | 'closing' | 'signature'
 export interface ImagePlacement { align: BlockAlignment; x: number; y: number; width: number; tabs: number }
