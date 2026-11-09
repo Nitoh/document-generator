@@ -48,7 +48,7 @@ public class TemplatePersistenceTests
             using var scope = app.Services.CreateScope();
             await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
             using var client = app.CreateClient();
-            var response = await client.PostAsJsonAsync("/api/templates", new { name = "Test " + Guid.NewGuid(), type = "Letter", category = "Vollmacht", content = "Hallo {{Name}}", layout = new { subject = "Testbetreff", senderName = "Nitoh", design = "line", headerStyle = "centered" } });
+            var response = await client.PostAsJsonAsync("/api/templates", new { name = "Test " + Guid.NewGuid(), type = "Letter", category = "Vollmacht", content = "Hallo {{Name}}", layout = new { subject = "Testbetreff", senderName = "Nitoh", design = "line", headerStyle = "centered", attachments = new[] { new { id = "conditions", title = "Vertragsanlage", content = new string('ä', 12000) } } } });
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             var created = (await response.Content.ReadFromJsonAsync<TemplateResponse>(Json))!;
             id = created.Id;
@@ -66,6 +66,9 @@ public class TemplatePersistenceTests
             Assert.Equal("Vollmacht", loaded.Category);
             Assert.Equal("line", loaded.Layout?.Design);
             Assert.Equal("centered", loaded.Layout?.HeaderStyle);
+            var attachment = Assert.Single(loaded.Layout!.Attachments);
+            Assert.Equal("Vertragsanlage", attachment.Title);
+            Assert.Equal(new string('ä', 12000), attachment.Content);
             Assert.Contains((await next.GetFromJsonAsync<TemplateResponse[]>("/api/templates", Json))!, t => t.Id == id);
             var update = await next.PutAsJsonAsync($"/api/templates/{id}", new { name = "Geändert", type = "Reminder", category = "Kündigung", content = "Guten Tag {{Name}}", layout = new { design = "minimal", headerStyle = "compact" } });
             update.EnsureSuccessStatusCode();

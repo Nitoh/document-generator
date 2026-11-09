@@ -14,7 +14,6 @@ public class TemplateService(TemplateRepository repository)
     {
         if (layout is null) return null;
         var json = JsonSerializer.Serialize(layout);
-        if (json.Length > 10000) throw new ArgumentException("Die Briefbausteine sind insgesamt zu lang.");
         return json;
     }
 
@@ -29,6 +28,11 @@ public class TemplateService(TemplateRepository repository)
         if (request.Layout is { } layout)
         {
             string[] texts = [layout.SenderName, layout.SenderStreet, layout.SenderPostalCode, layout.SenderCity, layout.SenderEmail, layout.SenderPhone, layout.RecipientName, layout.RecipientStreet, layout.RecipientPostalCode, layout.RecipientCity, layout.Subject, layout.Salutation, layout.ClosingText, layout.Closing, layout.Signature, layout.City, layout.Date, layout.Reference, layout.Footer];
+            foreach (var attachment in layout.Attachments)
+            {
+                _ = new TemplateRenderer(attachment.Title);
+                _ = new TemplateRenderer(attachment.Content);
+            }
             foreach (var text in texts)
                 if (!string.IsNullOrWhiteSpace(text)) _ = new TemplateRenderer(text);
         }

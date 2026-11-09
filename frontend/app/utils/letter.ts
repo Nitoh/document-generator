@@ -1,4 +1,4 @@
-import type { LetterDraft, LetterPageData } from '~/types/document'
+import type { LetterDraft, LetterPageData, LetterLayout } from '~/types/document'
 
 export function createDraft(): LetterDraft {
   const today = new Date()
@@ -56,4 +56,22 @@ export function paginateLines(lines: string[], firstCapacity = 25, nextCapacity 
     }
   } while (remaining.length)
   return pages
+}
+
+export function attachmentPages(
+  attachments: NonNullable<LetterLayout['attachments']>,
+  measure: (text: string) => number,
+  width: number
+) {
+  return attachments.flatMap((item, index) => {
+    const lines = wrapText(item.content, measure, width)
+    const title = wrapText(item.title, measure, width * 0.78)
+    const capacity = 42 - title.length
+    return Array.from({ length: Math.ceil(lines.length / capacity) }, (_, page) => ({
+      number: index + 1,
+      title,
+      continued: page > 0,
+      lines: lines.slice(page * capacity, (page + 1) * capacity)
+    }))
+  })
 }

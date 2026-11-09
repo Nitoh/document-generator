@@ -25,6 +25,15 @@ describe('print-ready PDF', () => {
       expect(pdf.internal.pageSize.getWidth()).toBeCloseTo(210, 1)
     }
   })
+  it('appends each form after the letter, including continuation pages', () => {
+    const layout = createDraft().layout
+    layout.attachments = [
+      { id: 'conditions', title: 'Vertragsanlage', content: 'Bedingungen' },
+      { id: 'form', title: 'Rückmeldung', content: Array(60).fill('Formularzeile').join('\n') }
+    ]
+    const pdf = createLetterPdf(layout, 'Ein Brief mit Anlagen.', fonts)
+    expect(pdf.getNumberOfPages()).toBe(4)
+  })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout
     expect(() => createLetterPdf({ ...layout, recipientName: '' }, 'Text', fonts)).toThrow('vervollständige')

@@ -42,11 +42,19 @@ public sealed class DocumentService
             Footer = Render(source.Footer),
             Design = source.Design,
             HeaderStyle = source.HeaderStyle,
+            Attachments = source.Attachments.Select(attachment => attachment with
+            {
+                Title = Render(attachment.Title),
+                Content = Render(attachment.Content)
+            }).ToArray(),
             ShowLogo = source.ShowLogo,
             ShowFoldMarks = source.ShowFoldMarks
         };
         if (layout is not null && !Validator.TryValidateObject(layout, new ValidationContext(layout), null, true))
             throw new ArgumentException("Die eingesetzten Angaben sind zu lang oder das Brieflayout ist ungültig.");
+        if (layout is not null && layout.Attachments.Any(attachment =>
+            !Validator.TryValidateObject(attachment, new ValidationContext(attachment), null, true)))
+            throw new ArgumentException("Die ausgefüllte Anlage überschreitet die zulässige Länge.");
         return new GeneratedDocumentResponse(body, fields.Distinct(StringComparer.Ordinal).ToArray(), layout);
     }
 }

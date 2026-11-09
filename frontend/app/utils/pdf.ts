@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { LetterLayout } from '~/types/document'
-import { formatDate, paginateLines, wrapText } from '~/utils/letter'
+import { attachmentPages, formatDate, paginateLines, wrapText } from '~/utils/letter'
 
 export interface PdfFonts { regular: string; bold: string }
 const lineHeight = 15 * 25.4 / 72
@@ -28,7 +28,10 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
   font(11, true)
   const subject = wrap(layout.subject)
   const pages = paginateLines(lines, Math.max(10, 31 - subject.length - salutation.length - 3), 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4)
-  if (pages.length > 50) throw new Error('Der Brief ist zu lang. Bitte kürze ihn auf höchstens 50 Seiten.')
+  font()
+  const annexes = attachmentPages(layout.attachments ?? [], text => pdf.getTextWidth(text), 165)
+  const totalPages = pages.length + annexes.length
+  if (totalPages > 50) throw new Error('Der Brief ist zu lang. Bitte kürze ihn auf höchstens 50 Seiten.')
   const drawLines = (text: string[], x: number, y: number, height = lineHeight) => {
     text.forEach((line, index) => pdf.text(line, x, y + index * height))
     return y + text.length * height
@@ -110,7 +113,19 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
       pdf.setDrawColor(layout.design === 'line' ? '#bda783' : '#d8d4ca'); pdf.setLineWidth(.2); pdf.line(25, footerY - 4, 190, footerY - 4)
     }
     drawLines(footer, 25, footerY, 3.5)
-    pdf.text(`${index + 1} / ${pages.length}`, 190, footerY, { align: 'right' })
+    pdf.text(`${index + 1} / ${totalPages}`, 190, footerY, { align: 'right' })
   }
+  annexes.forEach((page, index) => {
+    pdf.addPage()
+    pdf.setTextColor('#171715')
+    font(9)
+    pdf.text(`Anlage ${page.number}${page.continued ? ' · Fortsetzung' : ''}`, 25, 20)
+    font(14, true)
+    drawLines(page.title, 25, 31)
+    font()
+    drawLines(page.lines, 25, 36 + page.title.length * lineHeight)
+    font(7)
+    pdf.text(`${pages.length + index + 1} / ${totalPages}`, 190, 284, { align: 'right' })
+  })
   return pdf
 }

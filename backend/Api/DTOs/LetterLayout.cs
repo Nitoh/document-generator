@@ -67,6 +67,9 @@ public sealed class LetterLayout
     [RegularExpression("^(standard|compact|centered)$")]
     public string HeaderStyle { get; init; } = "standard";
 
+    [MaxLength(5)]
+    public LetterAttachment[] Attachments { get; init; } = [];
+
     public bool ShowLogo { get; init; } = true;
     public bool ShowFoldMarks { get; init; } = true;
 }
