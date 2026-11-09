@@ -13,10 +13,7 @@ const grouped = computed(() => categories.value.filter(group => !category.value 
 </script>
 <template>
   <section class="catalog no-print" aria-label="Briefvorlagen">
-    <div class="catalog-filters">
-      <UiFormField id="catalog-search" v-model="search" label="Vorlagen suchen" type="search" />
-      <label class="form-field">Kategorie<select v-model="category"><option value="">Alle Kategorien</option><option v-for="item in categories" :key="item">{{ item }}</option></select></label>
-    </div>
+    <StudioCategoryBrowser v-model:search="search" v-model:category="category" :categories="categories" search-label="Briefvorlagen suchen">
     <p v-if="!grouped.length" class="muted">Keine passende Briefvorlage gefunden.</p>
     <section v-for="entry in grouped" :key="entry.group">
       <h2>{{ entry.group }}</h2>
@@ -30,5 +27,6 @@ const grouped = computed(() => categories.value.filter(group => !category.value 
         </li>
       </ul>
     </section>
+    </StudioCategoryBrowser>
   </section>
 </template>

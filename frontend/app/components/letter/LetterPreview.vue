@@ -1,35 +1,45 @@
 <script setup lang="ts">
 import type { LetterLayout } from '~/types/document'
-import { attachmentPages, paginateLines, wrapText } from '~/utils/letter'
-const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean; attachmentOnly?: boolean }>()
+import { defaultFormat, formatBody, formatLines, lineHeightMm } from '~/utils/letter-format'
+import type { TextBlockFormat } from '~/types/document'
+import { imageGeometry } from '~/utils/letter-geometry'
+import { attachmentPages, paginateLines } from '~/utils/letter'
+const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean; attachmentOnly?: boolean; designer?: boolean }>()
 const showAttachments = ref(false)
 const mounted = ref(false)
 const container = useTemplateRef<HTMLElement>('canvas')
-const scale = ref(.75)
+const fit = ref(.75)
+const zoom = ref(1)
+const scale = computed(() => fit.value * zoom.value)
 let observer: ResizeObserver | undefined
 onMounted(async () => {
   await document.fonts.ready
   mounted.value = true
-  observer = new ResizeObserver(entries => { scale.value = Math.min(1, Math.max(.2, (entries[0]!.contentRect.width - 48) / (210 * 96 / 25.4))) })
+  observer = new ResizeObserver(entries => { fit.value = Math.min(1, Math.max(.2, (entries[0]!.contentRect.width - 48) / (210 * 96 / 25.4))) })
   if (container.value) observer.observe(container.value)
 })
 onBeforeUnmount(() => observer?.disconnect())
 const measurements = computed(() => {
   // Canvas only measures text; all output remains escaped Vue text nodes.
   const context = mounted.value ? document.createElement('canvas').getContext('2d') : null
-  const measure = (text: string) => context ? context.measureText(text).width : text.length * 7.2
-  if (context) context.font = '11pt "Nitoh Letter"'
-  const width = 165 * 96 / 25.4
-  const annexes = attachmentPages(props.layout.attachments ?? [], measure, width)
-  const body = wrapText(props.body, measure, width)
-  const salutation = wrapText(props.layout.salutation, measure, width)
-  const closingText = props.layout.closingText?.trim() ? wrapText(props.layout.closingText, measure, width) : []
-  const closing = wrapText(props.layout.closing, measure, width)
-  const signature = wrapText(props.layout.signature, measure, width)
-  if (context) context.font = 'bold 11pt "Nitoh Letter"'
-  const subject = wrapText(props.layout.subject, measure, width)
+  const pxPerMm = 96 / 25.4
+  const measure = (text: string, format: TextBlockFormat) => {
+    if (!context) return text.length * 7.2 / pxPerMm
+    context.font = `${format.italic ? 'italic' : 'normal'} ${format.bold ? 'bold' : 'normal'} 11pt "Nitoh Letter"`
+    return context.measureText(text).width / pxPerMm
+  }
+  const regular = defaultFormat()
+  const plain = (text: string) => measure(text, regular)
+  const annexes = attachmentPages(props.layout.attachments ?? [], plain, 165, measure)
+  const formats = props.layout.sectionFormats
+  const body = formatBody(props.body, props.layout.bodyFormats, measure)
+  const salutation = formatLines(props.layout.salutation, formats?.salutation, measure)
+  const closingText = props.layout.closingText?.trim() ? formatLines(props.layout.closingText, formats?.closingText, measure) : []
+  const closing = formatLines(props.layout.closing, formats?.closing, measure)
+  const signature = formatLines(props.layout.signature, formats?.signature, measure)
+  const subject = formatLines(props.layout.subject, formats?.subject, measure, true)
   const firstCapacity = Math.max(10, 31 - subject.length - salutation.length - 3)
-  return { annexes, subject, salutation, closingText, closing, signature, pages: props.attachmentOnly ? [] : paginateLines(body, firstCapacity, 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4 + (props.layout.signatureImage ? 4 : 0)) }
+  return { annexes, subject, salutation, closingText, closing, signature, pages: props.attachmentOnly ? [] : paginateLines(body, firstCapacity, 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4 + (props.layout.signatureImage ? Math.ceil((imageGeometry(props.layout.signatureImage, 'signature').height + imageGeometry(props.layout.signatureImage, 'signature').y) / lineHeightMm) : 0)) }
 })
 const total = computed(() => measurements.value.pages.length + measurements.value.annexes.length)
 const pageHeight = 297 * 96 / 25.4
@@ -60,16 +70,16 @@ defineExpose({ print })
 </script>
 <template>
   <section class="preview-panel" :aria-label="attachmentOnly ? 'Formularvorschau' : 'Briefvorschau'">
-    <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><button v-if="measurements.annexes.length && !attachmentOnly" class="button subtle" :aria-expanded="showAttachments" @click="showAttachments = !showAttachments">{{ showAttachments ? 'Anlagen ausblenden' : `Anlagen anzeigen (${layout.attachments?.length})` }}</button><span>{{ total }} {{ total === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
+    <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><button v-if="measurements.annexes.length && !attachmentOnly" class="button subtle" :aria-expanded="showAttachments" @click="showAttachments = !showAttachments">{{ showAttachments ? 'Anlagen ausblenden' : `Anlagen anzeigen (${layout.attachments?.length})` }}</button><slot name="tools" /><div v-if="designer" class="preview-zoom"><button class="button subtle" :disabled="zoom <= 0.75" aria-label="Vorschau verkleinern" @click="zoom -= .25">−</button><button class="button subtle" aria-label="Vorschau einpassen" @click="zoom = 1">{{ Math.round(scale * 100) }} %</button><button class="button subtle" :disabled="zoom >= 2" aria-label="Vorschau vergrößern" @click="zoom += .25">＋</button></div><span v-else>{{ total }} {{ total === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
     <div ref="canvas" class="preview-canvas">
-      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="total" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" /></div></div>
+      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="total" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" :designer="designer" /></div></div>
       <div v-for="(page,index) in measurements.annexes" :key="`attachment-${index}`" class="page-frame" :class="{ 'attachment-collapsed': !showAttachments && !attachmentOnly }" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }">
         <div class="page-scale" :style="{ transform: `scale(${scale})` }">
           <article class="letter-page attachment-page" :aria-label="`Anlage ${page.number}`">
             <div class="attachment-heading">Anlage {{ page.number }}{{ page.continued ? ' · Fortsetzung' : '' }}</div>
             <h2><span v-for="(line, lineIndex) in page.title" :key="lineIndex">{{ line }}</span></h2>
-            <img v-if="page.image" class="attachment-image" :src="page.image.data" alt="">
-            <div v-for="(line,lineIndex) in page.lines" :key="lineIndex" class="text-line">{{ line || ' ' }}</div>
+            <LetterPlacedImage v-if="page.image" :image="page.image" role="attachment" label="Formularbild" :designer="designer" />
+            <LetterFormattedLines :lines="page.lines" />
             <footer>{{ measurements.pages.length + index + 1 }} / {{ total }}</footer>
           </article>
         </div>

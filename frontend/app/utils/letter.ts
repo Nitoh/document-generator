@@ -1,4 +1,6 @@
-import type { LetterDraft, LetterPageData, LetterLayout } from '~/types/document'
+import { formatLines, wrapText } from './letter-format'
+import { imageGeometry } from './letter-geometry'
+import type { LetterDraft, LetterPageData, LetterLayout, TextBlockFormat } from '~/types/document'
 
 export function createDraft(): LetterDraft {
   const today = new Date()
@@ -23,27 +25,8 @@ export function formatDate(value: string): string {
   const parts = value.split('-')
   return parts.length === 3 ? `${parts[2]}.${parts[1]}.${parts[0]}` : value
 }
-// Exact same 11pt Arial font and 15pt line height as the printed pages.
-export function wrapText(text: string, measure: (text: string) => number, width: number): string[] {
-  const output: string[] = []
-  for (const paragraph of text.replace(/\r/g, '').split('\n')) {
-    if (!paragraph.trim()) { output.push(''); continue }
-    let line = ''
-    for (const word of paragraph.trim().split(/\s+/)) {
-      const candidate = line ? `${line} ${word}` : word
-      if (measure(candidate) <= width) { line = candidate; continue }
-      if (line) { output.push(line); line = '' }
-      for (const char of word) {
-        if (line && measure(line + char) > width) { output.push(line); line = '' }
-        line += char
-      }
-    }
-    if (line) output.push(line)
-  }
-  return output.length ? output : ['']
-}
-export function paginateLines(lines: string[], firstCapacity = 25, nextCapacity = 43, closingLines = 6): LetterPageData[] {
-  const pages: LetterPageData[] = []
+export function paginateLines<T>(lines: T[], firstCapacity = 25, nextCapacity = 43, closingLines = 6): LetterPageData<T>[] {
+  const pages: LetterPageData<T>[] = []
   const remaining = [...lines]
   do {
     const capacity = pages.length === 0 ? firstCapacity : nextCapacity
@@ -61,16 +44,18 @@ export function paginateLines(lines: string[], firstCapacity = 25, nextCapacity 
 export function attachmentPages(
   attachments: NonNullable<LetterLayout['attachments']>,
   measure: (text: string) => number,
-  width: number
+  width: number,
+  measureFormat: (text: string, format: TextBlockFormat) => number = (text: string) => measure(text) * 165 / width
 ) {
   return attachments.flatMap((item, index) => {
-    const lines = wrapText(item.content, measure, width)
+    const lines = formatLines(item.content, item.textFormat, measureFormat)
     const title = wrapText(item.title, measure, width * 0.78)
     const pages = []
     let offset = 0
     do {
       const image = offset === 0 ? item.image : null
-      const capacity = Math.max(1, 42 - title.length - (image ? 7 : 0))
+      const geometry = image ? imageGeometry(image, 'attachment') : null
+      const capacity = Math.max(1, 42 - title.length - (geometry ? Math.ceil((geometry.height + geometry.y + 4) / 5.29) : 0))
       pages.push({ number: index + 1, title, continued: offset > 0, lines: lines.slice(offset, offset + capacity), image })
       offset += capacity
     } while (offset < lines.length)

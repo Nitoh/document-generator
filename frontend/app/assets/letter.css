@@ -63,3 +63,18 @@
 .letter-signature-image { display: block; width: 50mm; height: 18mm; object-fit: contain; object-position: left center; margin-top: 1mm; }
 .attachment-image { display: block; width: 55mm; height: 30mm; object-fit: contain; object-position: left center; margin-bottom: 4mm; }
 @media screen { .attachment-collapsed { display: none; } }
+
+.placed-image { position: relative; width: 165mm; }
+.placed-image img { position: absolute; display: block; user-select: none; }
+.placed-logo { position: absolute; top: 0; left: 0; pointer-events: none; }
+.placed-attachment { margin-bottom: 4mm; }
+.drag-image img { pointer-events: auto; cursor: grab; touch-action: none; }
+.drag-image img:active { cursor: grabbing; }
+.preview-zoom { display: flex; gap: 4px; }
+.preview-zoom .button { padding: 4px 7px; }
+.preview-canvas { overflow-x: auto; }
+.formatted-line { display: block; }
+.formatted-line { font-synthesis: style; }
+.preview-toolbar { flex-wrap: wrap; gap: 8px; }
+.sample-preview { padding: 5px 8px; }
+.designer-workspace .preview-toolbar { position: sticky; top: 0; z-index: 1; background: #f8f6ef; }
