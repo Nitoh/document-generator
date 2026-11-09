@@ -92,3 +92,11 @@ Die Maße orientieren sich an **DIN 5008, Form B**. Das ist keine behauptete Zer
 Render und Neon sind derzeit nicht eingerichtet. Dockerfile, Render-Blueprint und GitHub-Pages-Workflow sind vorbereitet, aber Pages-Deployment ist standardmäßig deaktiviert. Details und kostenlose Tarifgrenzen: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 [Backend-Erklärung](backend/README.md) · [Nuxt-Erklärung](frontend/README.md) · [Prüfergebnisse](VALIDATION.md)
+
+### E-Mail aus dem lokalen Briefstudio
+
+Ohne SMTP kann das Briefstudio einen E-Mail-Entwurf mit PDF-Anhang als `.eml` speichern. Auf Geräten mit Unterstützung für das Teilen von Dateien steht auch der Systemdialog zur Verfügung.
+
+Für direkten Versand im lokalen Nuxt-Server setze dort `NUXT_LETTER_MAIL_KEY` auf einen zufälligen geheimen Wert. Gib dem API-Prozess denselben Wert als `LetterMail__Key` sowie `LetterMail__Host`, `LetterMail__From` und bei Bedarf `LetterMail__Username` und `LetterMail__Password`. Die Vorgaben für Port und STARTTLS sind 587 und aktiviert. Sie lassen sich über `LetterMail__Port` und `LetterMail__StartTls` ändern. Verwende einen für SMTP zugelassenen Absender deines Mailanbieters. Die Versandoberfläche ist auf den Zugriff über Loopback beschränkt und auf statischem GitHub Pages steht der E-Mail-Entwurf zur Verfügung.
+
+Briefhistorie und Versionsverlauf liegen im Browserprofil. Die aktuelle Briefvorlage verwendet wie bisher je nach Betriebsart die API oder den Browserspeicher.

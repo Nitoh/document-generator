@@ -3,6 +3,19 @@ const pattern = /\{\{\s*([\p{L}_][\p{L}\p{N}_]*)\s*\}\}/gu
 export function templateFields(text: string): string[] {
   return [...new Set([...text.matchAll(pattern)].map(match => match[1]!))]
 }
+export function previewText(text: string, values: Record<string, string>): string {
+  return text.replace(pattern, (token, key: string) => values[key]?.trim() ? values[key] : token)
+}
+
+export function previewLayout(layout: LetterLayout, values: Record<string, string>): LetterLayout {
+  const result = { ...layout }
+  for (const key of layoutTextKeys) result[key] = previewText(layout[key], values)
+  result.attachments = layout.attachments?.map(item => ({
+    ...item, title: previewText(item.title, values), content: previewText(item.content, values)
+  }))
+  return result
+}
+
 export function validateTemplate(text: string): void {
   if (!text.trim() || text.length > 20000) throw new Error('Der Brieftext muss 1 bis 20.000 Zeichen enthalten.')
   if (text.replace(pattern, '').includes('{{') || text.replace(pattern, '').includes('}}')) throw new Error('Ungültiger Platzhalter. Verwende beispielsweise {{Name}}.')

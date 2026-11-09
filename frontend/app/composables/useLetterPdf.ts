@@ -14,7 +14,7 @@ async function loadFont(url: string): Promise<string> {
 }
 export function useLetterPdf() {
   const exporting = ref(false)
-  async function download(layout: LetterLayout, body: string) {
+  async function createFile(layout: LetterLayout, body: string) {
     exporting.value = true
     try {
       fontPromise ??= Promise.all([loadFont(regularUrl), loadFont(boldUrl)])
@@ -23,8 +23,8 @@ export function useLetterPdf() {
       const [fonts, { createLetterPdf }] = await Promise.all([fontPromise, import('~/utils/pdf')])
       const pdf = createLetterPdf(layout, body, fonts)
       const name = layout.subject.replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 70) || 'Brief'
-      pdf.save(`Nitoh-${name}.pdf`)
+      return new File([pdf.output('blob')], `Nitoh-${name}.pdf`, { type: 'application/pdf' })
     } finally { exporting.value = false }
   }
-  return { exporting, download }
+  return { exporting, createFile }
 }

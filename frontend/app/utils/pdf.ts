@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import type { LetterLayout } from '~/types/document'
+import type { LetterImage, LetterLayout } from '~/types/document'
 import { attachmentPages, formatDate, paginateLines, wrapText } from '~/utils/letter'
 
 export interface PdfFonts { regular: string; bold: string }
@@ -27,7 +27,7 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
   const signature = wrap(layout.signature)
   font(11, true)
   const subject = wrap(layout.subject)
-  const pages = paginateLines(lines, Math.max(10, 31 - subject.length - salutation.length - 3), 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4)
+  const pages = paginateLines(lines, Math.max(10, 31 - subject.length - salutation.length - 3), 43, closingText.length + (closingText.length ? 1 : 0) + closing.length + signature.length + 4 + (layout.signatureImage ? 4 : 0))
   font()
   const annexes = attachmentPages(layout.attachments ?? [], text => pdf.getTextWidth(text), 165)
   const totalPages = pages.length + annexes.length
@@ -35,6 +35,12 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
   const drawLines = (text: string[], x: number, y: number, height = lineHeight) => {
     text.forEach((line, index) => pdf.text(line, x, y + index * height))
     return y + text.length * height
+  }
+  function drawImage(image: LetterImage, x: number, y: number, maxWidth: number, maxHeight: number, alignRight = false) {
+    const ratio = Math.min(maxWidth / image.width, maxHeight / image.height)
+    const width = image.width * ratio
+    pdf.addImage(image.data, image.data.startsWith('data:image/png') ? 'PNG' : 'JPEG',
+      alignRight ? x - width : x, y, width, image.height * ratio)
   }
   for (const [index, page] of pages.entries()) {
     if (index) pdf.addPage()
@@ -61,7 +67,9 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
       if (layout.design === 'line') {
         pdf.setDrawColor('#bda783'); pdf.setLineWidth(.3); pdf.line(25, 39, 190, 39)
       }
-      if (layout.showLogo) {
+      if (layout.logoImage) {
+        drawImage(layout.logoImage, 190, 12, 26, 22, true)
+      } else if (layout.showLogo) {
         pdf.setFillColor('#171715'); pdf.circle(182, 22, 8, 'F')
         // Vector N, matching the SVG monogram; no rasterisation.
         pdf.setFillColor('#d8c7aa')
@@ -100,6 +108,10 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
       y += lineHeight
       if (closingText.length) y = drawLines(closingText, 25, y) + lineHeight
       y = drawLines(closing, 25, y)
+      if (layout.signatureImage) {
+        drawImage(layout.signatureImage, 25, y + 1, 50, 18)
+        y += 20
+      }
       drawLines(signature, 25, y + lineHeight * 2)
     }
     if (layout.showFoldMarks) {
@@ -123,7 +135,12 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
     font(14, true)
     drawLines(page.title, 25, 31)
     font()
-    drawLines(page.lines, 25, 36 + page.title.length * lineHeight)
+    let bodyY = 36 + page.title.length * lineHeight
+    if (page.image) {
+      drawImage(page.image, 25, bodyY - 4, 55, 30)
+      bodyY += 34
+    }
+    drawLines(page.lines, 25, bodyY)
     font(7)
     pdf.text(`${pages.length + index + 1} / ${totalPages}`, 190, 284, { align: 'right' })
   })

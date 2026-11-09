@@ -70,6 +70,9 @@ public sealed class LetterLayout
     [MaxLength(5)]
     public LetterAttachment[] Attachments { get; init; } = [];
 
+    public LetterImage? LogoImage { get; init; }
+    public LetterImage? SignatureImage { get; init; }
+
     public bool ShowLogo { get; init; } = true;
     public bool ShowFoldMarks { get; init; } = true;
 }

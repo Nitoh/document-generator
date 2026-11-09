@@ -34,6 +34,14 @@ describe('print-ready PDF', () => {
     const pdf = createLetterPdf(layout, 'Ein Brief mit Anlagen.', fonts)
     expect(pdf.getNumberOfPages()).toBe(4)
   })
+  it('embeds uploaded images in the letter and in the attached form', () => {
+    const image = { data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4v4ABAARBAaDRYrMyAAAAAElFTkSuQmCC', width: 1, height: 1 }
+    const layout = { ...createDraft().layout, logoImage: image, signatureImage: image,
+      attachments: [{ id: 'form', title: 'Anlage', content: 'Mit Bild', image }] }
+    const pdf = createLetterPdf(layout, 'Brief mit Logo.', fonts)
+    expect(pdf.getNumberOfPages()).toBe(2)
+    expect(pdf.output()).toContain('/Subtype /Image')
+  })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout
     expect(() => createLetterPdf({ ...layout, recipientName: '' }, 'Text', fonts)).toThrow('vervollständige')

@@ -16,6 +16,7 @@ export const salutations = [
   { id: 'unknown', label: 'Unbekannte Empfänger · förmlich', text: 'Sehr geehrte Damen und Herren,' },
   { id: 'male', label: 'Herr · persönlich', text: 'Sehr geehrter Herr {{Nachname}},' },
   { id: 'female', label: 'Frau · persönlich', text: 'Sehr geehrte Frau {{Nachname}},' },
+  { id: 'neutral-general', label: 'Geschlechtsneutral · ohne Namen', text: 'Guten Tag,' },
   { id: 'neutral', label: 'Geschlechtsneutral · persönlich', text: 'Guten Tag {{Name}},' },
   { id: 'team', label: 'Team · geschlechtsneutral', text: 'Guten Tag liebes Team,' }
 ]

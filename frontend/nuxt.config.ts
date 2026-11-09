@@ -4,6 +4,7 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ['~/assets/main.css', '~/assets/letter.css'],
   runtimeConfig: {
+    letterMailKey: '',
     backendUrl: 'http://127.0.0.1:5080',
     public: { apiBase: '', storageMode: 'api' }
   },

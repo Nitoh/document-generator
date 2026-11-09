@@ -1,8 +1,11 @@
 export type DocumentType = 'Letter' | 'Invoice' | 'Reminder'
 export type LetterDesign = 'classic' | 'minimal' | 'line'
 export type HeaderStyle = 'standard' | 'compact' | 'centered'
-export interface LetterAttachment { id: string; title: string; content: string }
+export interface LetterImage { data: string; width: number; height: number }
+export interface LetterAttachment { id: string; title: string; content: string; image?: LetterImage | null }
 export interface LetterLayout {
+  logoImage?: LetterImage | null
+  signatureImage?: LetterImage | null
   attachments?: LetterAttachment[]
   design: LetterDesign; headerStyle: HeaderStyle
   senderName: string; senderStreet: string; senderPostalCode: string; senderCity: string

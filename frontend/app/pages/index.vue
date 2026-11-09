@@ -1,74 +1,364 @@
 <script setup lang="ts">
+import { starterTemplates } from '~/data/template-presets'
 import type { DocumentTemplate, LetterDraft, LetterAttachment } from '~/types/document'
+import { archiveEntries, archiveEntry, type HistoryEntry, type Version } from '~/utils/studio-archive'
+import { createMailDraft, downloadFile, encodeMailBytes } from '~/utils/letter-mail'
+import { validateTemplate } from '~/utils/template'
+
 const studio = useLetterStudio()
-const { draft, values, templates, busy, loading, error, message, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments } = studio
-const libraryOpen = ref(false)
+const { draft, hasDraft, values, templates, busy, loading, error, fields, previewBody, previewLayout, rendered, extraAttachments } = studio
+const section = ref<'letter' | 'library' | 'history'>('letter')
+const libraryKind = ref<'template' | 'form'>('template')
+const letterOpen = ref(false)
+const activeLetter = ref<string>()
+const activeLetterKey = 'nitoh.active-letter.v1'
+const design = ref<LetterDraft>()
+const designId = ref<string | null>(null)
+const designKey = ref(0)
+const form = ref<LetterAttachment>()
 const builderOpen = ref(false)
-const designerOpen = ref(false)
-const attachmentsOpen = ref(false)
+const feedback = ref('')
+const actionError = ref('')
 const attachmentLibrary = ref<LetterAttachment[]>([])
 const attachmentKey = 'nitoh.attachment-library.v1'
-onMounted(() => {
+const history = ref<HistoryEntry[]>([])
+const versions = ref<Version[]>([])
+const historyItem = ref<HistoryEntry>()
+const matchingVersions = computed(() => versions.value.filter(version => version.kind === libraryKind.value && version.item.id === (libraryKind.value === 'form' ? form.value?.id : designId.value)))
+const catalog = computed(() => [...templates.value, ...starterTemplates()])
+const pdf = useLetterPdf()
+const preview = useTemplateRef<{ print: () => string | null }>('preview')
+const mail = ref<{ pdf: File; subject: string }>()
+const mailRecipient = ref('')
+const mailEnabled = ref(false)
+const mailSending = ref(false)
+const mailError = ref('')
+const mailEndpoint = `${useRuntimeConfig().app.baseURL}api/studio-mail`
+const mailBody = ref('')
+const mailDialog = useTemplateRef<HTMLDialogElement>('mailDialog')
+const working = ref(false)
+const locked = computed(() => busy.value || working.value || pdf.exporting.value)
+const dateFormat = new Intl.DateTimeFormat('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+
+onMounted(async () => {
   try {
+    activeLetter.value = localStorage.getItem(activeLetterKey) ?? undefined
     const stored = JSON.parse(localStorage.getItem(attachmentKey) ?? '[]')
     if (Array.isArray(stored)) attachmentLibrary.value = stored
-  } catch { printError.value = 'Die Formularbibliothek konnte nicht geladen werden.' }
+    const [savedVersions, savedHistory] = await Promise.all([archiveEntries('versions'), archiveEntries('letters')])
+    versions.value = savedVersions
+    history.value = savedHistory
+  } catch { actionError.value = 'Die lokal gespeicherten Daten konnten nicht vollständig geladen werden.' }
+  if (studio.localMode) return
+  mailEnabled.value = (await $fetch<{ enabled: boolean }>(mailEndpoint).catch(() => null))?.enabled === true
 })
-function saveAttachment(item: LetterAttachment) {
-  const next = [...attachmentLibrary.value.filter(existing => existing.id !== item.id), item]
-  localStorage.setItem(attachmentKey, JSON.stringify(next))
-  attachmentLibrary.value = next
+
+function report(cause: unknown, fallback: string) { actionError.value = cause instanceof Error ? cause.message : fallback }
+function clearFeedback() { feedback.value = ''; actionError.value = ''; error.value = '' }
+function navigate(target: typeof section.value) {
+  clearFeedback()
+  section.value = target
+  if (target === 'letter') letterOpen.value = false
+  if (target === 'history') historyItem.value = undefined
+  window.scrollTo(0, 0)
+}
+function changeLibrary(kind: typeof libraryKind.value) {
+  clearFeedback()
+  libraryKind.value = kind
+}
+function choose(item: DocumentTemplate) {
+  studio.choose(item)
+  startLetterId()
+  letterOpen.value = true
+  clearFeedback()
+  window.scrollTo(0, 0)
+}
+function startLetterId() {
+  activeLetter.value = crypto.randomUUID()
+  try { localStorage.setItem(activeLetterKey, activeLetter.value) }
+  catch { /* The active letter still works for this browser session. */ }
+}
+function resumeLetter() {
+  if (!activeLetter.value) startLetterId()
+  clearFeedback()
+  letterOpen.value = true
+}
+function openDesign(item: DocumentTemplate) {
+  designKey.value++
+  const { name, category, type, content, layout } = item
+  design.value = JSON.parse(JSON.stringify({ name, category, type, content, layout }))
+  designId.value = item.id.startsWith('starter:') ? null : item.id
+  clearFeedback()
+  window.scrollTo(0, 0)
+}
+function createTemplate(template: LetterDraft) {
+  designKey.value++
+  builderOpen.value = false
+  designId.value = null
+  design.value = template
+}
+function saveAsTemplate() {
+  navigate('library')
+  libraryKind.value = 'template'
+  createTemplate(JSON.parse(JSON.stringify({
+    ...draft, layout: { ...draft.layout, attachments: previewUnresolvedAttachments() }
+  })))
+}
+function previewUnresolvedAttachments() {
+  const attached = new Map((draft.layout.attachments ?? []).map(item => [item.id, item]))
+  for (const item of extraAttachments.value) if (!attached.has(item.id)) attached.set(item.id, item)
+  return [...attached.values()]
+}
+async function saveVersion(version: Version) {
+  await archiveEntry('versions', version)
+  versions.value = [version, ...versions.value]
+}
+async function saveDesign() {
+  if (!design.value || locked.value) return
+  clearFeedback()
+  if ((design.value.layout.attachments?.length ?? 0) > 5) {
+    actionError.value = 'Eine Vorlage kann bis zu fünf feste Anlagen enthalten.'
+    return
+  }
+  if (!design.value.layout.subject.trim() || !design.value.layout.salutation.trim()) {
+    actionError.value = 'Bitte gib Betreff und Anrede ein.'
+    return
+  }
+  working.value = true
+  try {
+    const existing = templates.value.find(item => item.id === designId.value)
+    if (existing && !matchingVersions.value.length) await saveVersion({ kind: 'template', item: existing, at: new Date().toISOString(), id: crypto.randomUUID() })
+    const saved = await studio.saveTemplate(design.value, designId.value)
+    if (!saved) return
+    designId.value = saved.id
+    await saveVersion({ kind: 'template', item: saved, at: new Date().toISOString(), id: crypto.randomUUID() })
+    feedback.value = 'Briefvorlage als neue Version gespeichert.'
+  } catch (cause) { report(cause, 'Die Vorlagenversion konnte nicht gespeichert werden.') }
+  finally { working.value = false }
+}
+function openForm(item?: LetterAttachment) {
+  clearFeedback()
+  form.value = item ? JSON.parse(JSON.stringify(item)) : { id: crypto.randomUUID(), title: '', content: '' }
+}
+async function saveForm() {
+  if (!form.value || working.value) return
+  clearFeedback()
+  working.value = true
+  try {
+    const item = JSON.parse(JSON.stringify({ ...form.value, title: form.value.title.trim(), content: form.value.content.trim() })) as LetterAttachment
+    if (item.title.length > 200) throw new Error('Der Formulartitel darf höchstens 200 Zeichen enthalten.')
+    validateTemplate(item.title)
+    validateTemplate(item.content)
+    const existing = attachmentLibrary.value.find(entry => entry.id === item.id)
+    if (existing && !matchingVersions.value.length) await saveVersion({ kind: 'form', item: existing, at: new Date().toISOString(), id: crypto.randomUUID() })
+    const next = [...attachmentLibrary.value.filter(entry => entry.id !== item.id), item]
+    localStorage.setItem(attachmentKey, JSON.stringify(next))
+    attachmentLibrary.value = next
+    await saveVersion({ kind: 'form', item, at: new Date().toISOString(), id: crypto.randomUUID() })
+    feedback.value = 'Formular als neue Version gespeichert.'
+  } catch (cause) { report(cause, 'Das Formular konnte nicht gespeichert werden.') }
+  finally { working.value = false }
+}
+function restore(version: Version) {
+  if (version.kind === 'template') openDesign(version.item)
+  else openForm(version.item)
+  feedback.value = 'Version zum Bearbeiten geladen. Speichern legt eine neue Version an.'
 }
 function toggleAttachment(item: LetterAttachment) {
-  const remaining = extraAttachments.value.filter(extra => extra.id !== item.id)
-  extraAttachments.value = remaining.length === extraAttachments.value.length ? [...remaining, item] : remaining
+  if (extraAttachments.value.some(extra => extra.id === item.id)) extraAttachments.value = extraAttachments.value.filter(extra => extra.id !== item.id)
+  else if (previewUnresolvedAttachments().length < 5) extraAttachments.value = [...extraAttachments.value, item]
+  else actionError.value = 'Ein Brief kann bis zu fünf Anlagen enthalten.'
 }
-function applyDesign(content: string, attachments: LetterAttachment[]) {
-  draft.content = content
-  draft.layout.attachments = attachments
-  extraAttachments.value = extraAttachments.value.filter(extra => !attachments.some(item => item.id === extra.id))
-  designerOpen.value = false
-}
-function createTemplate(template: LetterDraft) { studio.createTemplate(template); builderOpen.value = false; designerOpen.value = true }
-function openBuilder() { libraryOpen.value = false; builderOpen.value = true }
-const pdf = useLetterPdf()
-const printError = ref('')
-const preview = useTemplateRef<{ print: () => string | null }>('preview')
-function choose(item: DocumentTemplate) { studio.choose(item); libraryOpen.value = false }
-async function downloadPdf() {
-  printError.value = ''
+async function currentLetter(): Promise<HistoryEntry | undefined> {
+  if (historyItem.value && section.value === 'history') return historyItem.value
   await studio.generate()
   if (rendered.value === null) return
-  try { await pdf.download(previewLayout.value, rendered.value) }
-  catch (cause) { printError.value = cause instanceof Error ? cause.message : 'Die PDF konnte nicht erstellt werden.' }
+  return { id: activeLetter.value!, at: new Date().toISOString(), layout: previewLayout.value, body: rendered.value }
 }
-async function printLetter() {
-  printError.value = ''
-  await studio.generate()
-  if (rendered.value === null) return
-  await nextTick()
-  printError.value = preview.value?.print() || ''
+async function remember(entry: HistoryEntry) {
+  await archiveEntry('letters', entry)
+  history.value = [entry, ...history.value.filter(item => item.id !== entry.id)]
+}
+async function output(action: 'save' | 'print' | 'pdf' | 'mail') {
+  if (locked.value) return
+  clearFeedback()
+  working.value = true
+  try {
+    const entry = await currentLetter()
+    if (!entry) return
+    if (action === 'print') {
+      await nextTick()
+      const issue = preview.value?.print()
+      if (issue) throw new Error(issue)
+      await remember(entry)
+      return
+    }
+    const file = await pdf.createFile(entry.layout, entry.body)
+    await remember(entry)
+    if (action === 'pdf') downloadFile(file)
+    if (action === 'save') feedback.value = 'Brief in der Historie gespeichert.'
+    if (action === 'mail') {
+      mail.value = { pdf: file, subject: entry.layout.subject }
+      mailRecipient.value = ''
+      mailBody.value = ''
+      mailError.value = ''
+      await nextTick()
+      mailDialog.value?.showModal()
+    }
+  } catch (cause) { report(cause, 'Der Brief konnte nicht fertiggestellt werden.') }
+  finally { working.value = false }
+}
+async function shareMail() {
+  if (!mail.value) return
+  try {
+    const draftFile = await createMailDraft(mail.value.pdf, mail.value.subject, mailRecipient.value, mailBody.value)
+    downloadFile(draftFile)
+    mailDialog.value?.close()
+    feedback.value = 'E-Mail-Entwurf mit PDF gespeichert. Öffne die Datei in deinem Mailprogramm.'
+  } catch { mailError.value = 'Der E-Mail-Entwurf konnte nicht erstellt werden.' }
+}
+const canShare = computed(() => mail.value && typeof navigator !== 'undefined' && navigator.canShare?.({ files: [mail.value.pdf] }))
+async function sharePdf() {
+  if (!mail.value) return
+  try {
+    await navigator.share({ files: [mail.value.pdf], title: mail.value.subject })
+    mailDialog.value?.close()
+  } catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'AbortError')) mailError.value = 'Die PDF konnte nicht geteilt werden.'
+  }
+}
+async function sendMail() {
+  if (!mail.value || mailSending.value) return
+  mailError.value = ''
+  mailSending.value = true
+  try {
+    if (mail.value.pdf.size > 5_000_000) throw new Error('Für den direkten Versand darf die PDF höchstens 5 MB groß sein.')
+    await $fetch(mailEndpoint, {
+      method: 'POST', retry: 0, timeout: 65_000,
+      body: {
+        recipient: mailRecipient.value.trim(),
+        subject: mail.value.subject.replace(/[\r\n]+/g, ' '),
+        body: mailBody.value,
+        pdf: encodeMailBytes(new Uint8Array(await mail.value.pdf.arrayBuffer()))
+      }
+    })
+    mailDialog.value?.close()
+    feedback.value = 'Der Mailserver hat den Brief zum Versand angenommen.'
+  } catch (cause) {
+    const response = cause as { data?: { data?: { detail?: string } }; message?: string }
+    mailError.value = response.data?.data?.detail || response.message || 'Der Brief konnte nicht gesendet werden.'
+  } finally { mailSending.value = false }
 }
 </script>
+
 <template>
   <div class="studio-shell">
-    <StudioSidebar :local-mode="localMode" :template-count="templates.length" @library="libraryOpen = true" @fresh="openBuilder" />
+    <StudioSidebar :section="section" @navigate="navigate" />
     <main class="studio-main">
-      <header class="topbar no-print"><span>DEIN DIGITALER SCHREIBTISCH</span><div><span class="status-dot" />{{ draftStatus }}</div></header>
-      <section class="studio-intro no-print"><div><div class="eyebrow"><span class="small-rule" /> WORTE MIT WIRKUNG</div><h1>Ein guter Brief.<br><em>Ein bleibender Eindruck.</em></h1><p>Von der ersten Zeile bis zum letzten Detail. Gestalte Briefe,<br class="desktop-break"> die auf Papier genauso gut wirken wie deine Worte.</p></div><div class="intro-format"><span>DIN</span><strong>5008</strong><span>FORM B · A4</span></div></section>
-      <div class="document-bar no-print"><div><span class="file-badge" aria-hidden="true">▤</span><div><label for="template-name">VORLAGENNAME</label><input id="template-name" v-model="draft.name" maxlength="200" aria-label="Vorlagenname"></div></div><div class="document-actions"><button class="button subtle" :disabled="busy" @click="studio.saveTemplate">Vorlage speichern</button><button class="button subtle print-action" :disabled="busy" @click="printLetter">Drucken</button><button class="button dark" :disabled="busy || pdf.exporting.value" @click="downloadPdf">{{ pdf.exporting.value ? 'PDF wird erstellt …' : 'PDF herunterladen' }} <span aria-hidden="true">↗</span></button></div></div>
-      <div v-if="error || printError || message" class="studio-feedback no-print" :class="{ error: error || printError }" :role="error || printError ? 'alert' : 'status'">{{ error || printError || message }}</div>
-      <div class="template-metadata no-print"><UiFormField id="draft-category" v-model="draft.category" label="Kategorie der Vorlage" :maxlength="80" /><StudioAppearancePicker v-model:design="draft.layout.design" v-model:header="draft.layout.headerStyle" id-prefix="current" /></div>
-      <div class="document-actions no-print designer-toolbar">
-        <button class="button subtle" @click="designerOpen = true">Vorlagendesigner</button>
-        <button class="button subtle" @click="attachmentsOpen = true">Formularanhänge ({{ previewLayout.attachments?.length ?? 0 }})</button>
+      <header class="section-header no-print">
+        <h1>{{ section === 'letter' ? 'Brief erstellen' : section === 'library' ? 'Library' : 'Briefhistorie' }}</h1>
+        <p v-if="section === 'letter' && !letterOpen">Wähle eine Briefvorlage aus deiner Library.</p>
+        <p v-else-if="section === 'library'">Gestalte Briefvorlagen und Formulare und verwalte ihre Versionen.</p>
+        <p v-else-if="section === 'history'">Gespeicherte und exportierte Briefe auf diesem Gerät.</p>
+      </header>
+
+      <div v-if="section === 'letter' && letterOpen" class="document-bar sticky-actions no-print">
+        <div><button class="button subtle" @click="navigate('letter')">Vorlage wechseln</button><strong>{{ draft.name }}</strong></div>
+        <div class="document-actions">
+          <button class="button subtle" @click="saveAsTemplate">Als Vorlage speichern</button>
+          <button class="button subtle" :disabled="locked" @click="output('print')">Drucken</button>
+          <button class="button dark" :disabled="locked" @click="output('pdf')">PDF herunterladen</button>
+          <button class="button subtle" :disabled="locked" @click="output('mail')">Per E-Mail</button>
+        </div>
       </div>
-      <div class="studio-workspace"><StudioLetterEditor :draft="draft" :values="values" @update:draft="Object.assign(draft, $event)" @update:values="Object.assign(values, $event)" :fields="fields" :busy="busy" @generate="studio.generate" /><LetterPreview ref="preview" :layout="previewLayout" :body="previewBody" :ready="rendered !== null" /></div>
-      <footer class="studio-footer no-print"><span><strong>NITOH</strong> · Mit Sorgfalt geschrieben.</span><span>Beim Drucken: A4 · 100 % · Browser-Kopf-/Fußzeilen aus.</span></footer>
+      <div v-if="error || actionError || feedback" class="studio-feedback no-print" :class="{ error: error || actionError }" :role="error || actionError ? 'alert' : 'status'">{{ error || actionError || feedback }}</div>
+
+      <template v-if="section === 'letter'">
+        <p v-if="loading && !letterOpen">Vorlagen werden geladen …</p>
+        <button v-if="!letterOpen && hasDraft" class="button subtle no-print" @click="resumeLetter">Letzten Entwurf fortsetzen</button>
+        <StudioTemplateCatalog v-if="!letterOpen" :items="catalog" @select="choose" />
+        <template v-else>
+          <details v-if="attachmentLibrary.length" class="letter-attachments no-print">
+            <summary>Formularanhänge für diesen Brief</summary>
+            <label v-for="item in attachmentLibrary" :key="item.id" class="attachment-option">
+              <input type="checkbox" :checked="previewUnresolvedAttachments().some(attached => attached.id === item.id)" :disabled="draft.layout.attachments?.some(attached => attached.id === item.id) || (previewUnresolvedAttachments().length >= 5 && !extraAttachments.some(attached => attached.id === item.id))" @change="toggleAttachment(item)">
+              {{ item.title }} <small v-if="draft.layout.attachments?.some(attached => attached.id === item.id)">· Feste Anlage der Vorlage</small>
+            </label>
+          </details>
+          <div class="studio-workspace">
+            <StudioLetterEditor :draft="draft" :values="values" :fields="fields" :busy="locked" @generate="output('save')" />
+            <LetterPreview ref="preview" :layout="previewLayout" :body="previewBody" :ready="rendered !== null" />
+          </div>
+        </template>
+      </template>
+
+      <template v-if="section === 'library'">
+        <nav class="library-tabs no-print" aria-label="Library-Typen">
+          <button class="button" :class="libraryKind === 'template' ? 'dark' : 'subtle'" @click="changeLibrary('template')">Briefvorlagen</button>
+          <button class="button" :class="libraryKind === 'form' ? 'dark' : 'subtle'" @click="changeLibrary('form')">Formulare</button>
+        </nav>
+        <template v-if="libraryKind === 'template'">
+          <div v-if="design" class="document-bar sticky-actions no-print">
+            <div><button class="button subtle" @click="design = undefined; clearFeedback()">Zurück zur Library</button><strong>Vorlagendesigner</strong></div>
+            <button class="button dark" :disabled="locked" @click="saveDesign">Vorlage speichern</button>
+          </div>
+          <div v-if="design" class="studio-workspace designer-workspace">
+            <StudioTemplateDesigner :key="designKey" v-model="design" :library="attachmentLibrary" />
+            <LetterPreview :layout="design.layout" :body="design.content" :ready="false" />
+          </div>
+          <template v-else>
+            <button class="button dark no-print" @click="builderOpen = true">Neue Briefvorlage</button>
+            <StudioTemplateCatalog :items="catalog" manage @select="openDesign" @remove="studio.removeTemplate" />
+          </template>
+        </template>
+        <template v-else>
+          <StudioFormDesigner v-if="form" :form="form" @close="form = undefined; clearFeedback()" @save="saveForm" />
+          <template v-else>
+            <button class="button dark no-print" @click="openForm()">Neues Formular</button>
+            <p v-if="!attachmentLibrary.length" class="muted">Du hast noch keine Formulare angelegt.</p>
+            <ul class="catalog-list">
+              <li v-for="item in attachmentLibrary" :key="item.id"><strong>{{ item.title }}</strong><button class="button subtle" @click="openForm(item)">Bearbeiten</button></li>
+            </ul>
+          </template>
+        </template>
+        <section v-if="matchingVersions.length && (libraryKind === 'template' ? design : form)" class="catalog no-print">
+          <h2>Versionen</h2>
+          <ul class="catalog-list">
+            <li v-for="(version, index) in matchingVersions" :key="version.id">
+              <div><strong>Version {{ matchingVersions.length - index }}</strong><small>{{ dateFormat.format(new Date(version.at)) }}</small></div>
+              <button class="button subtle" @click="restore(version)">Zum Bearbeiten laden</button>
+            </li>
+          </ul>
+        </section>
+      </template>
+
+      <template v-if="section === 'history'">
+        <template v-if="historyItem">
+          <div class="document-bar sticky-actions no-print"><button class="button subtle" @click="historyItem = undefined; clearFeedback()">Zurück zur Historie</button><div class="document-actions"><button class="button subtle" :disabled="locked" @click="output('print')">Drucken</button><button class="button dark" :disabled="locked" @click="output('pdf')">PDF herunterladen</button><button class="button subtle" :disabled="locked" @click="output('mail')">Per E-Mail</button></div></div>
+          <LetterPreview ref="preview" :layout="historyItem.layout" :body="historyItem.body" :ready="true" />
+        </template>
+        <template v-else>
+          <p v-if="!history.length" class="muted">Noch keine Briefe gespeichert. Verwende im Editor „Brief fertigstellen“ oder eine Ausgabeaktion.</p>
+          <ul class="catalog-list">
+            <li v-for="item in history" :key="item.id">
+              <div><strong>{{ item.layout.subject }}</strong><small>{{ item.layout.recipientName }} · {{ dateFormat.format(new Date(item.at)) }}</small></div>
+              <button class="button subtle" @click="historyItem = item">Öffnen</button>
+            </li>
+          </ul>
+        </template>
+      </template>
     </main>
-    <StudioTemplateLibrary v-if="libraryOpen" :templates="templates" :loading="loading" :busy="busy" :local-mode="localMode" @close="libraryOpen = false" @choose="choose" @remove="studio.removeTemplate" @refresh="studio.loadTemplates" @create="openBuilder" />
-    <StudioTemplateDesigner v-if="designerOpen" :content="draft.content" :attachments="draft.layout.attachments ?? []" :library="attachmentLibrary" @close="designerOpen = false" @apply="applyDesign" />
-    <StudioAttachmentLibrary v-if="attachmentsOpen" :library="attachmentLibrary" :defaults="draft.layout.attachments ?? []" :extras="extraAttachments" @close="attachmentsOpen = false" :save-item="saveAttachment" @toggle="toggleAttachment" />
     <StudioTemplateBuilder v-if="builderOpen" @close="builderOpen = false" @create="createTemplate" />
+    <dialog v-if="mail" ref="mailDialog" class="library-dialog no-print" aria-labelledby="mail-title" @close="mail = undefined">
+      <form @submit.prevent="mailEnabled ? sendMail() : shareMail()">
+        <div class="dialog-heading"><h2 id="mail-title">Brief per E-Mail</h2><button type="button" class="icon-button" aria-label="Schließen" :disabled="mailSending" @click="mailDialog?.close()">×</button></div>
+        <p v-if="mailEnabled" class="muted">Der Brief wird mit der PDF als Anhang an die eingegebene Adresse gesendet.</p>
+        <p v-else class="muted">Der E-Mail-Entwurf enthält deinen Brief als PDF. Den Versand bestätigst du im Mailprogramm.</p>
+        <UiFormField id="mail-recipient" v-model="mailRecipient" label="Empfänger-E-Mail" type="email" :maxlength="254" />
+        <UiFormField id="mail-body" v-model="mailBody" label="Nachricht" multiline :rows="4" :maxlength="5000" />
+        <p v-if="mailError" role="alert">{{ mailError }}</p>
+        <div class="catalog-actions"><button v-if="canShare" type="button" class="button subtle" @click="sharePdf">PDF über System teilen</button><button v-if="mailEnabled" type="button" class="button subtle" :disabled="mailSending" @click="shareMail">E-Mail-Entwurf herunterladen</button><button class="button dark" type="submit" :disabled="mailSending">{{ mailSending ? 'Wird gesendet …' : mailEnabled ? 'E-Mail senden' : 'E-Mail-Entwurf herunterladen (.eml)' }}</button></div>
+      </form>
+    </dialog>
   </div>
 </template>
