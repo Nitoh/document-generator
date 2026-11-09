@@ -28,7 +28,7 @@ function moveTab(event: KeyboardEvent, index: number) {
         <div class="field-row postal"><UiFormField id="sender-postal" v-model="draft.layout.senderPostalCode" label="Postleitzahl" :maxlength="20" /><UiFormField id="sender-city" v-model="draft.layout.senderCity" label="Ort" :maxlength="80" /></div>
         <div class="field-row"><UiFormField id="sender-email" v-model="draft.layout.senderEmail" label="E-Mail (optional)" type="email" :maxlength="120" /><UiFormField id="sender-phone" v-model="draft.layout.senderPhone" label="Telefon (optional)" type="tel" :maxlength="50" /></div>
         <label class="toggle-row"><span><strong>Nitoh-Logo im Briefkopf</strong><small>Wird verwendet, wenn kein eigenes Logo eingesetzt ist.</small></span><input v-model="draft.layout.showLogo" type="checkbox" role="switch"></label>
-        <StudioImageField v-model="draft.layout.logoImage" label="Eigenes Logo" />
+        <StudioImageField v-model="draft.layout.logoImage" role="logo" label="Eigenes Logo" />
         <button class="button next-button" @click="tab = 'recipient'">Weiter zum Empfänger <span>→</span></button>
       </template>
       <template v-else-if="tab === 'recipient'">
@@ -56,7 +56,7 @@ function moveTab(event: KeyboardEvent, index: number) {
         <div class="form-field"><label for="closing-preset">Abschluss-Baustein wählen</label><select id="closing-preset" :value="draft.layout.closing" @change="draft.layout.closing = ($event.target as HTMLSelectElement).value"><option :value="draft.layout.closing">Eigener / aktueller Abschluss</option><option v-for="item in closings" :key="item.id" :value="item.text">{{ item.label }}</option></select></div>
         <UiFormField id="closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
         <UiFormField id="signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
-        <StudioImageField v-model="draft.layout.signatureImage" label="Unterschrift" />
+        <StudioImageField v-model="draft.layout.signatureImage" role="signature" label="Unterschrift" />
         <UiFormField id="footer" v-model="draft.layout.footer" label="Fußzeile (optional)" :maxlength="200" hint="Zum Beispiel Firmen- oder Registerangaben." />
         <label class="toggle-row"><span><strong>Falz- und Lochmarken</strong><small>Für Faltung und Ablage.</small></span><input v-model="draft.layout.showFoldMarks" type="checkbox" role="switch"></label>
       </template>

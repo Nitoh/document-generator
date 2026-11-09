@@ -47,6 +47,8 @@ public sealed class DocumentService
                 Title = Render(attachment.Title),
                 Content = Render(attachment.Content)
             }).ToArray(),
+            BodyFormats = source.BodyFormats,
+            SectionFormats = source.SectionFormats,
             LogoImage = source.LogoImage,
             SignatureImage = source.SignatureImage,
             ShowLogo = source.ShowLogo,

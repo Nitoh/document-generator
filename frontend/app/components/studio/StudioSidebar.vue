@@ -1,8 +1,8 @@
 <script setup lang="ts">
-type Section = 'letter' | 'library' | 'history'
+type Section = 'letter' | 'library' | 'history' | 'archive'
 defineProps<{ section: Section }>()
 defineEmits<{ navigate: [Section] }>()
-const items = [{ id: 'letter', title: 'Brief erstellen' }, { id: 'library', title: 'Library' }, { id: 'history', title: 'Historie' }] as const
+const items = [{ id: 'letter', title: 'Brief erstellen' }, { id: 'library', title: 'Library' }, { id: 'history', title: 'Historie' }, { id: 'archive', title: 'Archiv' }] as const
 </script>
 <template>
   <aside class="sidebar no-print">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { paginateLines, wrapText, formatDate } from '../app/utils/letter'
+import { paginateLines, formatDate } from '../app/utils/letter'
+import { wrapText } from '../app/utils/letter-format'
 import { renderTemplate, templateFields, validateTemplate } from '../app/utils/template'
 
 describe('letter content', () => {

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { createDraft } from '../app/utils/letter'
+import { defaultFormat, formatBody } from '../app/utils/letter-format'
 import { createLetterPdf } from '../app/utils/pdf'
 const fonts = {
   regular: readFileSync(new URL('../app/assets/fonts/Carlito-Regular.ttf', import.meta.url)).toString('base64'),
@@ -41,6 +42,16 @@ describe('print-ready PDF', () => {
     const pdf = createLetterPdf(layout, 'Brief mit Logo.', fonts)
     expect(pdf.getNumberOfPages()).toBe(2)
     expect(pdf.output()).toContain('/Subtype /Image')
+  })
+  it('renders a formatted paragraph with millimetre spacing and a PDF text transform', () => {
+    const format = { ...defaultFormat(true), align: 'center' as const, tabs: 1, indent: 10, before: 10, italic: true }
+    const body = formatBody('Erste Zeile', [format], text => text.length)
+    expect(body.slice(0, -1).reduce((sum, line) => sum + line.height, 0)).toBe(10)
+    expect(body.at(-1)?.indent).toBe(22.5)
+    const layout = { ...createDraft().layout, bodyFormats: [format] }
+    const pdf = createLetterPdf(layout, 'Erste Zeile', fonts)
+    expect(pdf.getNumberOfPages()).toBe(1)
+    expect(pdf.output()).toContain('/FontFile2')
   })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout

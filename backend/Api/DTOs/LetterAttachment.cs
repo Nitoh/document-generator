@@ -7,5 +7,9 @@ public sealed record LetterAttachment(
     [Required, StringLength(200)] string Title,
     [Required, StringLength(20000)] string Content)
 {
+    [StringLength(80)]
+    public string? Category { get; init; }
+
+    public TextBlockFormat? TextFormat { get; init; }
     public LetterImage? Image { get; init; }
 }

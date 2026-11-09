@@ -70,6 +70,11 @@ public sealed class LetterLayout
     [MaxLength(5)]
     public LetterAttachment[] Attachments { get; init; } = [];
 
+    [MaxLength(10000)]
+    public TextBlockFormat?[]? BodyFormats { get; init; }
+
+    public Dictionary<string, TextBlockFormat>? SectionFormats { get; init; }
+
     public LetterImage? LogoImage { get; init; }
     public LetterImage? SignatureImage { get; init; }
 

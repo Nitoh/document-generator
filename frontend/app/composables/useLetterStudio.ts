@@ -83,7 +83,7 @@ export function useLetterStudio() {
     for (const key of Object.keys(values)) delete values[key]
     extraAttachments.value = []
     revision++
-    Object.assign(draft, { name: item.name, category: item.category || 'Allgemeines', type: item.type, content: item.content, layout: { ...createDraft().layout, ...item.layout } })
+    Object.assign(draft, { name: item.name, category: item.category || 'Allgemeines', type: item.type, content: item.content, layout: { ...createDraft().layout, ...JSON.parse(JSON.stringify(item.layout)) } })
     selectedId.value = item.id.startsWith('starter:') ? null : item.id
     rendered.value = null; renderedLayout.value = null; error.value = ''; message.value = 'Vorlage geöffnet. Layout und Bausteine bleiben frei änderbar.'
     saveDraft()
