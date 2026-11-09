@@ -99,8 +99,6 @@ async function saveImage() {
     feedback.value = 'Bild in der Library gespeichert.'
   } catch (cause) { report(cause, 'Das Bild konnte nicht gespeichert werden.') }
 }
-function subjectOf(item: LetterRecord) { return 'parts' in item ? item.subject : item.layout.subject }
-function recipientOf(item: LetterRecord) { return 'parts' in item ? item.recipient : item.layout.recipientName }
 async function showRecord(item: LetterRecord) {
   try { historyItem.value = await openLetter(item) }
   catch (cause) { report(cause, 'Der Brief konnte nicht geöffnet werden.') }
@@ -465,13 +463,7 @@ async function sendMail() {
           <LetterPreview ref="preview" :layout="historyItem.layout" :body="historyItem.body" :ready="true" />
         </template>
         <template v-else>
-          <p v-if="!timeline.length" class="muted">{{ section === 'archive' ? 'Das Archiv ist noch leer.' : 'In diesem Zeitraum sind keine Briefe gespeichert.' }}</p>
-          <ul class="catalog-list">
-            <li v-for="item in timeline" :key="item.id">
-              <div><strong>{{ subjectOf(item) }}</strong><small>{{ recipientOf(item) }} · {{ dateFormat.format(new Date(item.at)) }}</small><small v-if="item.origin">{{ item.origin.name }}<template v-if="item.origin.version"> · Version {{ item.origin.version }}</template></small></div>
-              <button class="button subtle" @click="showRecord(item)">Öffnen</button>
-            </li>
-          </ul>
+          <StudioLetterTimeline :letters="timeline" :archived="section === 'archive'" @open="showRecord" />
         </template>
       </template>
     </main>

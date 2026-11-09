@@ -120,3 +120,15 @@ export async function openLetter(record: LetterRecord): Promise<HistoryEntry> {
     return { id: record.id, at: record.at, origin: record.origin, body, layout: { ...layout, logoImage, signatureImage, attachments } }
   } finally { db.close() }
 }
+
+export function lettersByMonth<T extends { at: string }>(items: T[], timeZone?: string) {
+  const formatter = new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric', timeZone })
+  const groups = new Map<string, T[]>()
+  for (const item of [...items].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))) {
+    const label = formatter.format(new Date(item.at))
+    const group = groups.get(label) ?? []
+    group.push(item)
+    groups.set(label, group)
+  }
+  return [...groups].map(([label, entries]) => ({ label, entries }))
+}
