@@ -55,7 +55,7 @@ jobs:
         with:
           path: frontend/.output/public
   deploy:
-    if: github.ref == 'refs/heads/master' && (vars.PAGES_DEPLOY_ENABLED == 'true' || inputs.deploy == true)
+    if: github.ref == 'refs/heads/master' && (github.event.repository.private == false && vars.PAGES_DEPLOY_ENABLED != 'false' || inputs.deploy == true)
     needs: verify
     runs-on: ubuntu-latest
     permissions:

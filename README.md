@@ -89,7 +89,7 @@ Die Maße orientieren sich an **DIN 5008, Form B**. Das ist keine behauptete Zer
 
 ## Veröffentlichung
 
-Render und Neon sind derzeit nicht eingerichtet. Dockerfile, Render-Blueprint und GitHub-Pages-Workflow sind vorbereitet, aber Pages-Deployment ist standardmäßig deaktiviert. Details und kostenlose Tarifgrenzen: [DEPLOYMENT.md](DEPLOYMENT.md).
+Die Veröffentlichung verwendet GitHub Pages, einen Render-Free-Webdienst und Neon PostgreSQL. Details und kostenlose Tarifgrenzen: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 [Backend-Erklärung](backend/README.md) · [Nuxt-Erklärung](frontend/README.md) · [Prüfergebnisse](VALIDATION.md)
 

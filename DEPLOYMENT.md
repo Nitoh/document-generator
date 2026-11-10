@@ -1,37 +1,24 @@
-# Hosting – vorbereitet, derzeit lokal
+# Kostenloses Hosting
 
-Es wurden weder Render-/Neon-Konten noch Cloud-Ressourcen angelegt. GitHub Pages wurde nicht aktiviert. Die öffentliche Veröffentlichung ist bewusst auf später verschoben.
+GitHub Pages liefert den statischen Nuxt-Build. Render betreibt den ASP.NET-Core-Monolithen als Docker-Webdienst. Neon stellt PostgreSQL bereit. Npgsql ist der Treiber, über den EF Core die Datenbank anspricht.
 
-## Lokale Entwicklung
+## Backend
 
-PostgreSQL über compose.yaml, Backend mit `dotnet run --project backend/Api`, Nuxt mit `npm run dev`. Die ausführlichen Befehle stehen in README.md. Docker ist in der aktuellen Testumgebung nicht installiert; dort wurde echte PostgreSQL-Persistenz mit einer isolierten lokalen PostgreSQL-Instanz geprüft.
+1. Auf Neon ein Free-Projekt mit PostgreSQL in einer passenden Region anlegen. Die gepoolte PostgreSQL-URI in Neon kopieren.
+2. Auf Render im Hobby-Workspace einen Docker-Webdienst mit Instanztyp **Free** aus `master` anlegen. Dockerfile `./backend/Api/Dockerfile`, Kontext `.`, Health Check `/api/health`. `render.yaml` dokumentiert die Konfiguration. Kein persistenter Render-Datenträger ist erforderlich.
+3. `ConnectionStrings__Default` ausschließlich im Render-Dashboard setzen. Die API akzeptiert die Neon-URI und prüft das TLS-Zertifikat. Alternativ kann eine Npgsql-Verbindungszeichenfolge verwendet werden. `APPLY_MIGRATIONS=true` startet zuerst die vorhandenen EF-Core-Migrationen.
+4. `StudioAccess__Required=true` und `StudioAccess__Key` setzen. Einen zufälligen Schlüssel mit mindestens 32 Zeichen verwenden, etwa per `openssl rand -hex 32`. Den Schlüssel persönlich aufbewahren und im veröffentlichten Studio eingeben. Die API schützt Vorlagen und Dokumentgenerierung und stellt den Health-Endpunkt öffentlich bereit.
+5. `Cors__AllowedOrigins__0=https://nitoh.github.io` setzen. CORS begrenzt Browserzugriffe. Der persönliche Zugriffsschlüssel schützt die API unabhängig davon.
+6. Für den Git-verbundenen Dienst **After CI Checks Pass** aktivieren. So baut Render neue Commits auf `master` nach erfolgreicher GitHub-Prüfung.
 
-## GitHub Pages
+## Frontend
 
-GitHub Pages hostet statische Dateien, kein ASP.NET Core und keine PostgreSQL-Datenbank. Der Nuxt-Build unterstützt den Projektpfad `/document-generator/`.
+Unter GitHub → Settings → Pages **GitHub Actions** als Quelle auswählen. `PUBLIC_API_URL` als Repository-Variable mit der HTTPS-URL von Render setzen. GitHub Actions baut nach erfolgreichen Prüfungen den Nuxt-Projektpfad `/document-generator/` und veröffentlicht ihn für das öffentliche Repo. Ohne `PUBLIC_API_URL` verwendet der Build den Browserspeicher. `PAGES_DEPLOY_ENABLED=false` pausiert automatische Veröffentlichungen.
 
-Der Workflow `.github/workflows/verify-and-pages.yml` prüft Backend und Frontend und erstellt das statische Artefakt. Der Deployment-Job läuft erst, wenn `PAGES_DEPLOY_ENABLED=true` als Repository-Variable gesetzt wird oder der manuelle Workflow mit deploy=true auf master gestartet wird. Standardmäßig bleibt er aus.
+## Prüfung und spätere Änderungen
 
-Spätere Einrichtung:
+- `GET /api/health` auf Render prüfen. Ein anschließendes authentifiziertes Lesen und Schreiben einer Testvorlage prüft die PostgreSQL-Verbindung. Unautorisierte Vorlagenaufrufe müssen HTTP 401 ergeben.
+- Auf Pages das Studio öffnen, entsperren und eine Vorlage abrufen. Die Verbindung enthält ausschließlich die öffentliche API-Adresse. Der persönliche Zugriffsschlüssel bleibt in der jeweiligen Browsersitzung. Historie, Formulare, Bildbibliothek und Versionen bleiben browserlokal.
+- Künftige Änderungen über einen Pull Request nach `master` mergen. GitHub Actions veröffentlicht den geprüften Build und Render übernimmt den API-Stand nach CI. Die tatsächlichen Deployments stehen im Actions- und Render-Dashboard.
 
-1. GitHub → Repository → Settings → Pages → Source: GitHub Actions.
-2. Für das private Repository einen Pages-fähigen GitHub-Tarif sicherstellen. Das Repository bleibt privat; wir ändern seine Sichtbarkeit nicht.
-3. Optional PUBLIC_API_URL auf die öffentliche HTTPS-API-Adresse setzen, ohne abschließenden Slash. Ohne diese Variable entsteht ausdrücklich ein Browser-Modus mit Speicherung auf dem jeweiligen Gerät.
-4. PAGES_DEPLOY_ENABLED=true setzen. Danach veröffentlichen erfolgreich geprüfte Änderungen an master automatisch.
-
-Bei privatem Repository ist GitHub Pages nicht in jedem kostenlosen GitHub-Tarif enthalten. [GitHub-Dokumentation](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site).
-
-## Späteres kostenloses Backend: Render + Neon
-
-Vorbereitete Dateien: `backend/Api/Dockerfile`, `start.sh` und `render.yaml`. Der Blueprint beschreibt einen Free-Web-Service und enthält keine Datenbank-Zugangsdaten. Automatisches Render-Deployment ist zunächst aus.
-
-Nach eigener Kontoanmeldung können wir gemeinsam:
-
-- Eine Neon-PostgreSQL-Datenbank anlegen und ihre Verbindung ausschließlich als geheime Backend-Umgebungsvariable ConnectionStrings__Default setzen.
-- Den Render-Free-Service aus dem privaten Repository bauen und die initialen Migrationen kontrolliert anwenden (APPLY_MIGRATIONS=true).
-- CORS auf https://nitoh.github.io beschränken. CORS ist keine Anmeldung und schützt keine öffentlichen CRUD-Endpunkte vor direkten API-Aufrufen. Vor dem Speichern persönlicher produktiver Briefe in einer öffentlichen API gehört Zugriffsschutz als eigener Umsetzungsschritt dazu.
-- Die Render-URL als PUBLIC_API_URL in GitHub setzen und Pages neu bauen.
-
-Gratisbedingungen sind keine Verfügbarkeitsgarantie: Render-Free schläft nach 15 Minuten ohne Anfragen; der erste neue Aufruf kann ungefähr eine Minute benötigen. Render-Free-PostgreSQL läuft nach 30 Tagen ab und ist deshalb hier nicht als dauerhafte Datenbank vorgesehen. Neon hat einen kostenlosen Tarif mit begrenztem Speicher und Compute sowie Ruhemodus. Bei der tatsächlichen Einrichtung prüfen wir die dann geltenden Tarife erneut; es wird kein kostenpflichtiger Plan automatisch ausgewählt.
-
-Primärquellen: [Render Free](https://render.com/docs/free), [Render Docker](https://render.com/docs/docker), [Neon Free Limits](https://github.com/neondatabase/website/blob/main/content/faqs/free-plan-limits-and-quotas.md).
+Render Hobby ohne Zahlungsmittel und Neon Free verwenden. Bei überschrittenen Freikontingenten mit Pausen rechnen. [Render Free](https://render.com/docs/free) · [Neon-Tarife](https://neon.com/pricing) · [Pages-Limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)

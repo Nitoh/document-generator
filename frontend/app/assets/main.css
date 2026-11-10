@@ -305,3 +305,15 @@ select:focus-visible { outline: 3px solid #a0834d; outline-offset: 3px; }
   [data-studio-theme=dark] .editor-tabs button[aria-selected=true] { color: var(--ink); }
   [data-studio-theme=dark] :is(.toggle-row,.editor-tabs) { border-color: var(--line); }
 }
+
+.template-builder { max-width: 1080px; }
+.builder-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 20px; }
+.builder-workspace .preview-panel { position: sticky; top: 0; }
+.builder-workspace .preview-canvas { max-height: 65vh; overflow: auto; }
+.studio-access { max-width: 540px; margin-bottom: 20px; }
+@media (max-width: 750px) {
+  .builder-workspace { display: flex; flex-direction: column-reverse; }
+  .builder-workspace > * { width: 100%; }
+  .builder-workspace .preview-panel { position: static; }
+  .builder-workspace .preview-canvas { max-height: 38vh; }
+}
