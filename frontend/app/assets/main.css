@@ -300,3 +300,8 @@ select:focus-visible { outline: 3px solid #a0834d; outline-offset: 3px; }
   [data-studio-theme=dark] .letter-page { color-scheme: light; color: #171715; background: #fff; }
   [data-studio-theme=dark] .timeline-month h2 { color: #d8c7aa; }
 }
+@media screen {
+  [data-studio-theme=dark] :is(.form-field label,.preview-toolbar strong,.field-hint,.section-caption,.toggle-row small,.editor-tabs button) { color: var(--muted); }
+  [data-studio-theme=dark] .editor-tabs button[aria-selected=true] { color: var(--ink); }
+  [data-studio-theme=dark] :is(.toggle-row,.editor-tabs) { border-color: var(--line); }
+}
