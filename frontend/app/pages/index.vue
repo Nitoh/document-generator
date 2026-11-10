@@ -7,7 +7,8 @@ import { createMailDraft, downloadFile, encodeMailBytes } from '~/utils/letter-m
 import { validateTemplate } from '~/utils/template'
 
 const studio = useLetterStudio()
-const { draft, hasDraft, values, templates, busy, loading, error, fields, previewBody, previewLayout, rendered, extraAttachments } = studio
+const accessInput = ref('')
+const { remoteAccess, accessVerified, draft, hasDraft, values, templates, busy, loading, error, fields, previewBody, previewLayout, rendered, extraAttachments } = studio
 const section = ref<'home' | 'letter' | 'library' | 'history' | 'archive' | 'settings'>('home')
 const theme = ref<'light' | 'dark'>('light')
 const themeKey = 'nitoh.theme.v1'
@@ -395,6 +396,13 @@ async function sendMail() {
               <p v-else-if="section === 'archive'">Briefe ab {{ archiveDays }} Tagen. Sie lassen sich aus den gespeicherten Bestandteilen erneut öffnen.</p>
       </header>
 
+      <form v-if="remoteAccess && !accessVerified" class="studio-access editor-panel design-fields no-print" @submit.prevent="studio.unlockAccess(accessInput); accessInput = ''">
+        <h2>Studio entsperren</h2>
+        <p>Gib deinen persönlichen Zugriffsschlüssel ein, um die Online-Vorlagen zu öffnen.</p>
+        <UiFormField id="studio-key" v-model="accessInput" label="Zugriffsschlüssel" type="password" />
+        <button class="button dark" :disabled="loading || !accessInput.trim()">Entsperren</button>
+      </form>
+      <button v-else-if="remoteAccess && section === 'settings'" class="button subtle no-print" @click="studio.lockAccess()">Online-Zugriff sperren</button>
       <section v-if="section === 'home'" class="studio-home no-print">
         <p>Erstelle einen Brief aus deiner Library oder gestalte eine Vorlage für den nächsten Anlass.</p>
         <div class="document-actions">

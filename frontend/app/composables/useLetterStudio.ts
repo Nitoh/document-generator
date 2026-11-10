@@ -7,6 +7,10 @@ const templatesKey = 'nitoh.letter-templates.v1'
 export function useLetterStudio() {
   const config = useRuntimeConfig()
   const localMode = config.public.storageMode === 'local'
+  const remoteAccess = !localMode && Boolean(config.public.apiBase)
+  const accessKey = ref('')
+  const accessVerified = ref(false)
+  const accessStorage = 'nitoh.studio-access.v1'
   const draft = reactive<LetterDraft>(createDraft())
   const values = reactive<Record<string, string>>(Object.assign(Object.create(null), { Datum: '15.11.2026', Uhrzeit: '10:00 Uhr' }))
   const templates = ref<DocumentTemplate[]>([])
@@ -32,11 +36,31 @@ export function useLetterStudio() {
   let ready = false
   let timer: ReturnType<typeof setTimeout> | undefined
   function problem(cause: unknown): string {
+    if ((cause as { statusCode?: number })?.statusCode === 401) return 'Der Zugriffsschlüssel fehlt oder ist ungültig.'
     const data = (cause as { data?: { detail?: string; errors?: Record<string, string[]> } })?.data
     return data?.detail || Object.values(data?.errors || {}).flat().join(' ') || (cause instanceof Error && !(cause as { statusCode?: number }).statusCode ? cause.message : '') || 'Die API ist nicht erreichbar. Prüfe, ob das Backend läuft, und versuche es erneut.'
   }
-  function request<T>(path: string, options: Record<string, unknown> = {}) {
-    return $fetch<T>(`${config.public.apiBase.replace(/\/+$/, '')}${path}`, { timeout: 90000, retry: 0, ...options })
+  async function request<T>(path: string, options: Record<string, unknown> = {}) {
+    try { return await $fetch<T>(`${config.public.apiBase.replace(/\/+$/, '')}${path}`, { timeout: 90000, retry: 0, ...options,
+      headers: remoteAccess && accessKey.value ? { Authorization: `Bearer ${accessKey.value}` } : undefined })
+    } catch (cause) {
+      if ((cause as { statusCode?: number })?.statusCode === 401) lockAccess()
+      throw cause
+    }
+  }
+  function lockAccess() {
+    accessKey.value = ''
+    accessVerified.value = false
+    templates.value = []
+    try { sessionStorage.removeItem(accessStorage) } catch { /* Access is locked in memory. */ }
+  }
+  async function unlockAccess(key: string) {
+    accessKey.value = key.trim()
+    await loadTemplates()
+    if (!error.value && accessKey.value) {
+      accessVerified.value = true
+      try { sessionStorage.setItem(accessStorage, accessKey.value) } catch { /* Access is limited to the current page. */ }
+    }
   }
   function saveDraft() {
     if (!ready) return
@@ -75,7 +99,10 @@ export function useLetterStudio() {
       }
     } catch { draftStatus.value = 'Neuer Entwurf' }
     ready = true
-    await loadTemplates()
+    if (remoteAccess) {
+      try { accessKey.value = sessionStorage.getItem(accessStorage) ?? '' } catch { /* Prompt for the key. */ }
+      if (accessKey.value) await unlockAccess(accessKey.value)
+    } else await loadTemplates()
   })
   onBeforeUnmount(() => clearTimeout(timer))
   function choose(item: DocumentTemplate) {
@@ -154,5 +181,5 @@ export function useLetterStudio() {
     } catch (cause) { if (version === revision) error.value = problem(cause) }
     finally { busy.value = false }
   }
-  return { draft, hasDraft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
+  return { remoteAccess, accessVerified, unlockAccess, lockAccess, draft, hasDraft, values, templates, selectedId, busy, loading, message, error, draftStatus, fields, previewBody, previewLayout, rendered, localMode, extraAttachments, loadTemplates, choose, fresh, createTemplate, saveTemplate, removeTemplate, generate }
 }
