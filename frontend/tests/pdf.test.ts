@@ -61,6 +61,14 @@ describe('print-ready PDF', () => {
     expect(content.every(line => line.rightIndent === 100 && line.format.underline)).toBe(true)
     expect(lines.filter(line => !line.text).reduce((total, line) => total + line.height, 0)).toBe(7)
   })
+  it('omits a disabled header and does not require a date for a hidden information block', () => {
+    const layout = { ...createDraft().layout, showHeader: false, showInformation: false, date: '',
+      logoImage: { data: 'invalid image must not be rendered', width: 1, height: 1 } }
+    const pdf = createLetterPdf(layout, 'Brief ohne Kopf und Informationsblock.', fonts)
+    expect(pdf.getNumberOfPages()).toBe(1)
+    expect(pdf.output()).not.toContain('/Subtype /Image')
+    expect(() => createLetterPdf({ ...layout, showInformation: true }, 'Brief.', fonts)).toThrow('Briefdatum')
+  })
   it('rejects missing recipient and overflowing address data', () => {
     const layout = createDraft().layout
     expect(() => createLetterPdf({ ...layout, recipientName: '' }, 'Text', fonts)).toThrow('vervollständige')

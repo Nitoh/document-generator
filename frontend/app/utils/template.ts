@@ -31,9 +31,13 @@ export function renderTemplate(text: string, values: Record<string, string>): st
 }
 
 export const layoutTextKeys = ['senderName', 'senderStreet', 'senderPostalCode', 'senderCity', 'senderEmail', 'senderPhone', 'recipientName', 'recipientStreet', 'recipientPostalCode', 'recipientCity', 'subject', 'salutation', 'closingText', 'closing', 'signature', 'city', 'date', 'reference', 'footer'] as const
+const informationKeys = new Set(['senderEmail', 'senderPhone', 'city', 'date', 'reference'])
+function visibleLayoutKeys(layout: LetterLayout) {
+  return layout.showInformation === false ? layoutTextKeys.filter(key => !informationKeys.has(key)) : layoutTextKeys
+}
 export function layoutFields(layout: LetterLayout): string[] {
   return [...new Set([
-    ...layoutTextKeys.flatMap(key => templateFields(layout[key])),
+    ...visibleLayoutKeys(layout).flatMap(key => templateFields(layout[key])),
     ...(layout.attachments ?? []).flatMap(item => [...templateFields(item.title), ...templateFields(item.content)])
   ])]
 }
@@ -44,7 +48,7 @@ const layoutLimits: Record<typeof layoutTextKeys[number], number> = {
 }
 export function renderLayout(layout: LetterLayout, values: Record<string, string>): LetterLayout {
   const rendered = { ...layout }
-  for (const key of layoutTextKeys) {
+  for (const key of visibleLayoutKeys(layout)) {
     if (layout[key].trim()) rendered[key] = renderTemplate(layout[key], values)
     if (rendered[key].length > layoutLimits[key]) throw new Error('Die eingesetzten Angaben sind für das gewählte Brieffeld zu lang.')
   }

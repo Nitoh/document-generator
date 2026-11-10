@@ -62,3 +62,9 @@ export function attachmentPages(
     return pages
   })
 }
+
+export function validateLetter(layout: LetterLayout): void {
+  const required = [layout.senderName, layout.senderStreet, layout.senderPostalCode, layout.senderCity, layout.recipientName, layout.recipientStreet, layout.recipientPostalCode, layout.recipientCity, layout.subject, layout.salutation]
+  if (required.some(value => !value.trim())) throw new Error('Bitte vervollständige Absender, Empfänger, Betreff, und Anrede.')
+  if (layout.showInformation !== false && !/^\d{4}-\d{2}-\d{2}$/.test(layout.date)) throw new Error('Bitte wähle ein gültiges Briefdatum.')
+}

@@ -6,7 +6,7 @@ export const blockWidthMm = 165
 export function defaultFormat(bold = false): TextBlockFormat {
   return { align: 'left', indent: 0, tabs: 0, before: 0, bold, italic: false }
 }
-export interface FormattedLine { text: string; format: TextBlockFormat; indent: number; rightIndent: number; height: number }
+export interface FormattedLine { text: string; format: TextBlockFormat; indent: number; rightIndent: number; height: number; block?: number }
 type Measure = (text: string, format: TextBlockFormat) => number
 export function splitBlocks(text: string) { return text.split(/\r?\n[ \t]*\r?\n/) }
 export function formatLines(text: string, format: TextBlockFormat | null | undefined, measure: Measure, bold = false): FormattedLine[] {
@@ -24,10 +24,9 @@ export function formatLines(text: string, format: TextBlockFormat | null | undef
   return [...spacing(style.before), ...lines.map(value => ({ ...blank, text: value })), ...spacing(style.after)]
 }
 export function formatBody(text: string, formats: (TextBlockFormat | null)[] | undefined, measure: Measure): FormattedLine[] {
-  if (!formats?.some(Boolean)) return formatLines(text, undefined, measure)
   return splitBlocks(text).flatMap((block, index) => [
     ...(index ? formatLines('', undefined, measure) : []),
-    ...formatLines(block, formats[index], measure)
+    ...formatLines(block, formats?.[index], measure).map(line => ({ ...line, block: index }))
   ])
 }
 

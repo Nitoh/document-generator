@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { focusEditorField } from '~/utils/editor-links'
 import { createDraft } from '~/utils/letter'
 import type { LetterAttachment } from '~/types/document'
 const props = defineProps<{ form: LetterAttachment; categories: string[] }>()
@@ -17,6 +18,6 @@ const layout = computed(() => ({ ...baseLayout, attachments: [{ ...props.form, t
       <StudioImageField v-model="form.image" role="attachment" label="Bild auf der ersten Formularseite" />
       <div class="catalog-actions"><button class="button subtle" @click="emit('close')">Abbrechen</button><button class="button dark" @click="emit('save')">Formular speichern</button></div>
     </section>
-    <LetterPreview :layout="layout" body="" :ready="false" attachment-only designer />
+    <LetterPreview :layout="layout" body="" :ready="false" attachment-only designer linked @select="focusEditorField($event === 'formTitle' ? 'form-title' : 'form-content')" />
   </div>
 </template>

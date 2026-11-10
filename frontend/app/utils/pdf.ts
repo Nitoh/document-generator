@@ -2,15 +2,10 @@ import { jsPDF } from 'jspdf'
 import type { LetterImage, LetterLayout, TextBlockFormat } from '~/types/document'
 import { formatBody, formatLines, lineHeightMm, wrapText, type FormattedLine } from './letter-format'
 import { imageGeometry, type ImageRole } from './letter-geometry'
-import { attachmentPages, formatDate, paginateLines } from '~/utils/letter'
+import { attachmentPages, formatDate, paginateLines, validateLetter } from '~/utils/letter'
 
 export interface PdfFonts { regular: string; bold: string }
 const lineHeight = lineHeightMm
-export function validateLetter(layout: LetterLayout): void {
-  const required = [layout.senderName, layout.senderStreet, layout.senderPostalCode, layout.senderCity, layout.recipientName, layout.recipientStreet, layout.recipientPostalCode, layout.recipientCity, layout.subject, layout.salutation, layout.date]
-  if (required.some(value => !value.trim())) throw new Error('Bitte vervollständige Absender, Empfänger, Betreff, Anrede und Datum.')
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(layout.date)) throw new Error('Bitte wähle ein gültiges Briefdatum.')
-}
 export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFonts): jsPDF {
   validateLetter(layout)
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
@@ -75,37 +70,39 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
     if (index) pdf.addPage()
     pdf.setTextColor('#171715')
     if (page.first) {
-      const header = layout.headerStyle || 'standard'
-      const centered = header === 'centered'
-      const headerX = centered ? 107.5 : 25
-      const headerWidth = centered ? 120 : 140
-      font(header === 'compact' ? 11 : layout.design === 'minimal' ? 12 : 13, layout.design !== 'minimal')
-      const headerLine = (text: string[], y: number) => {
-        text.forEach((line,index) => pdf.text(line, headerX, y + index * 4.4, centered ? { align: 'center' } : {}))
-        return y + text.length * 4.4
-      }
-      let y = headerLine(wrap(layout.senderName, headerWidth), 18)
-      font(9)
-      if (header === 'compact') {
-        y = headerLine(wrap(`${layout.senderStreet} · ${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y + 1)
-      } else {
-        y = headerLine(wrap(layout.senderStreet, headerWidth), y + 1)
-        y = headerLine(wrap(`${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y)
-      }
-      if (y > 39) throw new Error('Der Briefkopf ist zu lang. Bitte kürze die Absenderangaben.')
-      if (layout.design === 'line') {
-        pdf.setDrawColor('#bda783'); pdf.setLineWidth(.3); pdf.line(25, 39, 190, 39)
-      }
-      if (layout.logoImage) {
-        drawImage(layout.logoImage, 14, 'logo')
-      } else if (layout.showLogo) {
-        pdf.setFillColor('#171715'); pdf.circle(182, 22, 8, 'F')
-        // Vector N, matching the SVG monogram; no rasterisation.
-        pdf.setFillColor('#d8c7aa')
-        pdf.rect(178.5, 18.75, 1.75, 6.5, 'F')
-        pdf.rect(183.75, 18.75, 1.75, 6.5, 'F')
-        pdf.triangle(180.25, 18.75, 185.5, 25.25, 183.75, 25.25, 'F')
-        pdf.triangle(180.25, 18.75, 178.5, 18.75, 183.75, 25.25, 'F')
+      if (layout.showHeader !== false) {
+        const header = layout.headerStyle || 'standard'
+        const centered = header === 'centered'
+        const headerX = centered ? 107.5 : 25
+        const headerWidth = centered ? 120 : 140
+        font(header === 'compact' ? 11 : layout.design === 'minimal' ? 12 : 13, layout.design !== 'minimal')
+        const headerLine = (text: string[], y: number) => {
+          text.forEach((line,index) => pdf.text(line, headerX, y + index * 4.4, centered ? { align: 'center' } : {}))
+          return y + text.length * 4.4
+        }
+        let y = headerLine(wrap(layout.senderName, headerWidth), 18)
+        font(9)
+        if (header === 'compact') {
+          y = headerLine(wrap(`${layout.senderStreet} · ${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y + 1)
+        } else {
+          y = headerLine(wrap(layout.senderStreet, headerWidth), y + 1)
+          y = headerLine(wrap(`${layout.senderPostalCode} ${layout.senderCity}`, headerWidth), y)
+        }
+        if (y > 39) throw new Error('Der Briefkopf ist zu lang. Bitte kürze die Absenderangaben.')
+        if (layout.design === 'line') {
+          pdf.setDrawColor('#bda783'); pdf.setLineWidth(.3); pdf.line(25, 39, 190, 39)
+        }
+        if (layout.logoImage) {
+          drawImage(layout.logoImage, 14, 'logo')
+        } else if (layout.showLogo) {
+          pdf.setFillColor('#171715'); pdf.circle(182, 22, 8, 'F')
+          // Vector N, matching the SVG monogram; no rasterisation.
+          pdf.setFillColor('#d8c7aa')
+          pdf.rect(178.5, 18.75, 1.75, 6.5, 'F')
+          pdf.rect(183.75, 18.75, 1.75, 6.5, 'F')
+          pdf.triangle(180.25, 18.75, 185.5, 25.25, 183.75, 25.25, 'F')
+          pdf.triangle(180.25, 18.75, 178.5, 18.75, 183.75, 25.25, 'F')
+        }
       }
       font(7)
       const returned = wrap([layout.senderName, layout.senderStreet, `${layout.senderPostalCode} ${layout.senderCity}`].filter(x => x.trim()).join(' · '), 80)
@@ -115,17 +112,23 @@ export function createLetterPdf(layout: LetterLayout, body: string, fonts: PdfFo
       const address = [layout.recipientName, layout.recipientStreet, `${layout.recipientPostalCode} ${layout.recipientCity}`].flatMap(value => wrap(value, 80))
       if (address.length > 6) throw new Error('Die Empfängeranschrift ist zu lang für das Anschriftfeld.')
       drawLines(address, 25, 66.2, 4.55)
-      let infoY = 52.4
-      for (const [label, value] of [['Unser Zeichen', layout.reference], ['Telefon', layout.senderPhone], ['E-Mail', layout.senderEmail], ['Datum', `${layout.city ? `${layout.city}, ` : ''}${formatDate(layout.date)}`]]) {
-        if (!value) continue
-        font(6.5); pdf.setTextColor('#777469'); pdf.text(label!, 125, infoY)
-        font(8); pdf.setTextColor('#171715')
-        infoY = drawLines(wrap(value, 65), 125, infoY + 3.7, 3.7) + 2
+      if (layout.showInformation !== false) {
+        let infoY = 52.4
+        const align = layout.informationAlign ?? 'left'
+        const x = align === 'right' ? 190 : align === 'center' ? 157.5 : 125
+        for (const [label, value] of [['Unser Zeichen', layout.reference], ['Telefon', layout.senderPhone], ['E-Mail', layout.senderEmail], ['Datum', `${layout.city ? `${layout.city}, ` : ''}${formatDate(layout.date)}`]]) {
+          if (!value) continue
+          font(6.5); pdf.setTextColor('#777469'); pdf.text(label!, x, infoY, { align })
+          font(8); pdf.setTextColor('#171715')
+          const lines = wrap(value, 65)
+          lines.forEach((line, index) => pdf.text(line, x, infoY + 3.7 * (index + 1), { align }))
+          infoY += 3.7 * (lines.length + 1) + 2
+        }
+        if (infoY > 92) throw new Error('Der Informationsblock ist zu lang. Bitte kürze Referenz oder Kontaktdaten.')
       }
-      if (infoY > 92) throw new Error('Der Informationsblock ist zu lang. Bitte kürze Referenz oder Kontaktdaten.')
     } else {
       font(8, true); pdf.text(layout.senderName, 25, 18)
-      font(8); pdf.text(`${formatDate(layout.date)} · ${layout.reference}`, 190, 18, { align: 'right' })
+      if (layout.showInformation !== false) { font(8); pdf.text(`${formatDate(layout.date)} · ${layout.reference}`, 190, 18, { align: 'right' }) }
     }
     let y = page.first ? 102 : 34
     if (page.first) {

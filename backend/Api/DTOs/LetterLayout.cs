@@ -78,6 +78,10 @@ public sealed class LetterLayout
     public LetterImage? LogoImage { get; init; }
     public LetterImage? SignatureImage { get; init; }
 
+    public bool ShowHeader { get; init; } = true;
+    public bool ShowInformation { get; init; } = true;
+    [RegularExpression("^(left|center|right)$")]
+    public string InformationAlign { get; init; } = "left";
     public bool ShowLogo { get; init; } = true;
     public bool ShowFoldMarks { get; init; } = true;
 }
