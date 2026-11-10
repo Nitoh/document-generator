@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PreviewBlock } from '~/utils/editor-links'
 import { categories, starterTemplates } from '~/data/template-presets'
 import type { DocumentTemplate, LetterDraft, LetterAttachment, LibraryImage } from '~/types/document'
 import { archiveEntries, archiveEntry, saveLetter, openLetter, isArchived, archiveDays, type HistoryEntry, type LetterRecord, type Version, type TemplateOrigin } from '~/utils/studio-archive'
@@ -7,7 +8,15 @@ import { validateTemplate } from '~/utils/template'
 
 const studio = useLetterStudio()
 const { draft, hasDraft, values, templates, busy, loading, error, fields, previewBody, previewLayout, rendered, extraAttachments } = studio
-const section = ref<'letter' | 'library' | 'history' | 'archive'>('letter')
+const section = ref<'home' | 'letter' | 'library' | 'history' | 'archive' | 'settings'>('home')
+const theme = ref<'light' | 'dark'>('light')
+const themeKey = 'nitoh.theme.v1'
+useHead(() => ({ htmlAttrs: { 'data-studio-theme': theme.value } }))
+watch(theme, value => {
+  try { localStorage.setItem(themeKey, value) } catch { /* Theme still applies for this session. */ }
+})
+const designEditor = useTemplateRef<{ focusBlock: (block: PreviewBlock) => void }>('designEditor')
+const letterEditor = useTemplateRef<{ focusBlock: (block: PreviewBlock) => void }>('letterEditor')
 const libraryKind = ref<'template' | 'form' | 'image'>('template')
 const letterOpen = ref(false)
 const activeLetter = ref<string>()
@@ -106,6 +115,7 @@ async function showRecord(item: LetterRecord) {
 
 onMounted(async () => {
   try {
+    theme.value = localStorage.getItem(themeKey) === 'dark' ? 'dark' : 'light'
     activeLetter.value = localStorage.getItem(activeLetterKey) ?? undefined
     origin.value = JSON.parse(localStorage.getItem(activeOriginKey) ?? 'null') ?? undefined
     const stored = JSON.parse(localStorage.getItem(attachmentKey) ?? '[]')
@@ -265,12 +275,21 @@ function versionChanges(version: Version, previous?: Version) {
     JSON.stringify([current.layout.logoImage, current.layout.signatureImage]) !== JSON.stringify([old.layout.logoImage, old.layout.signatureImage]) && 'Bilder'
   ].filter(Boolean).join(', ') || 'Gleicher Inhalt'
 }
+function openVersionFromSettings(version: Version) {
+  navigate('library')
+  libraryKind.value = version.kind
+  restore(version)
+}
 function restore(version: Version) {
   if (!discardChanges()) return
-  if (version.kind === 'template') openDesign(version.item)
-  else openForm(version.item)
+  if (version.kind === 'template') {
+    openDesign(version.item)
+    if (!templates.value.some(item => item.id === version.item.id)) designId.value = null
+  } else openForm(version.item)
   baseline.value = ''
-  feedback.value = 'Version zum Bearbeiten geladen. Speichern legt eine neue Version an.'
+  feedback.value = version.kind === 'template' && !designId.value
+    ? 'Version zum Bearbeiten geladen. Speichern legt eine neue Vorlage an.'
+    : 'Version zum Bearbeiten geladen. Speichern legt eine neue Version an.'
 }
 function toggleAttachment(item: LetterAttachment) {
   if (extraAttachments.value.some(extra => extra.id === item.id)) extraAttachments.value = extraAttachments.value.filter(extra => extra.id !== item.id)
@@ -369,12 +388,26 @@ async function sendMail() {
     <StudioSidebar :section="section" @navigate="navigate" />
     <main class="studio-main">
       <header class="section-header no-print">
-        <h1>{{ section === 'letter' ? 'Brief erstellen' : section === 'library' ? 'Library' : section === 'archive' ? 'Archiv' : 'Briefhistorie' }}</h1>
+        <h1>{{ section === 'home' ? 'Willkommen im Briefstudio' : section === 'settings' ? 'Einstellungen' : section === 'letter' ? 'Brief erstellen' : section === 'library' ? 'Library' : section === 'archive' ? 'Archiv' : 'Briefhistorie' }}</h1>
         <p v-if="section === 'letter' && !letterOpen">Wähle eine Briefvorlage aus deiner Library.</p>
         <p v-else-if="section === 'library'">Gestalte Briefvorlagen und Formulare und verwalte ihre Versionen.</p>
         <p v-else-if="section === 'history'">Briefe der letzten {{ archiveDays }} Tage auf diesem Gerät.</p>
               <p v-else-if="section === 'archive'">Briefe ab {{ archiveDays }} Tagen. Sie lassen sich aus den gespeicherten Bestandteilen erneut öffnen.</p>
       </header>
+
+      <section v-if="section === 'home'" class="studio-home no-print">
+        <p>Erstelle einen Brief aus deiner Library oder gestalte eine Vorlage für den nächsten Anlass.</p>
+        <div class="document-actions">
+          <button class="button dark" @click="navigate('letter')">Brief erstellen ↗</button>
+          <button v-if="hasDraft" class="button subtle" @click="navigate('letter'); resumeLetter()">Entwurf fortsetzen</button>
+        </div>
+        <div class="home-links">
+          <button class="editor-panel" @click="navigate('library')"><strong>Library</strong><span>Briefvorlagen, Formulare und Bilder gestalten</span></button>
+          <button class="editor-panel" @click="navigate('history')"><strong>Historie</strong><span>Zuletzt erstellte Briefe öffnen</span></button>
+          <button class="editor-panel" @click="navigate('archive')"><strong>Archiv</strong><span>Ältere Briefe wiederfinden</span></button>
+        </div>
+      </section>
+      <StudioSettingsPanel v-if="section === 'settings'" v-model:theme="theme" :versions="versions" @open-version="openVersionFromSettings" />
 
       <div v-if="section === 'letter' && letterOpen" class="document-bar sticky-actions no-print">
         <div><button class="button subtle" @click="navigate('letter')">Vorlage wechseln</button><strong>{{ draft.name }}</strong></div>
@@ -400,8 +433,8 @@ async function sendMail() {
             </label>
           </details>
           <div class="studio-workspace">
-            <StudioLetterEditor :draft="draft" :values="values" :fields="fields" :busy="locked" @generate="output('save')" />
-            <LetterPreview ref="preview" :layout="previewLayout" :body="previewBody" :ready="rendered !== null" :designer="rendered === null" />
+            <StudioLetterEditor ref="letterEditor" :draft="draft" :values="values" :fields="fields" :busy="locked" @generate="output('save')" />
+            <LetterPreview ref="preview" :layout="previewLayout" :body="previewBody" :ready="rendered !== null" :designer="rendered === null" linked @select="letterEditor?.focusBlock($event)" />
           </div>
         </template>
       </template>
@@ -421,8 +454,8 @@ async function sendMail() {
             <button class="button dark" :disabled="locked" @click="saveDesign">Vorlage speichern</button>
           </div>
           <div v-if="design" class="studio-workspace designer-workspace">
-            <StudioTemplateDesigner :key="designKey" v-model="design" :library="attachmentLibrary" :categories="templateCategories" />
-            <StudioDesignPreview :draft="design" />
+            <StudioTemplateDesigner ref="designEditor" :key="designKey" v-model="design" :library="attachmentLibrary" :categories="templateCategories" />
+            <StudioDesignPreview :draft="design" @select="designEditor?.focusBlock($event)" />
           </div>
           <template v-else>
             <StudioTemplateCatalog :items="catalog" manage @select="openDesign" @remove="studio.removeTemplate" />
@@ -438,12 +471,16 @@ async function sendMail() {
           </StudioCategoryBrowser>
         </template>
         <template v-else>
-          <section v-if="imageEdit" class="editor-panel design-fields image-editor">
+          <div v-if="imageEdit" class="studio-workspace designer-workspace"><section class="editor-panel design-fields image-editor">
             <UiFormField id="image-name" :model-value="imageEdit.name || ''" label="Bildname" @update:model-value="imageEdit.name = $event" />
             <StudioCategoryField id="image-category" :model-value="imageEdit.category || ''" :categories="imageCategories" @update:model-value="imageEdit.category = $event" />
             <StudioImageField :model-value="imageEdit.image" label="Bilddatei" library-entry @update:model-value="imageEdit.image = $event ?? undefined" />
             <div class="catalog-actions"><button class="button subtle" @click="closeEditor">Abbrechen</button><button class="button dark" @click="saveImage">Bild speichern</button></div>
           </section>
+          <section class="preview-panel" aria-label="Bildvorschau">
+            <div class="preview-toolbar"><strong>Live-Vorschau</strong></div>
+            <div class="image-asset-preview"><img v-if="imageEdit.image" :src="imageEdit.image.data" :alt="imageEdit.name || 'Bildvorschau'"><p v-else class="muted">Wähle eine PNG- oder JPEG-Datei für die Vorschau.</p></div>
+          </section></div>
           <StudioImageCatalog v-else :items="images" @edit="openImage" />
         </template>
         <section v-if="matchingVersions.length && (libraryKind === 'template' ? design : form)" class="catalog no-print">

@@ -11,6 +11,7 @@ export interface ImagePlacement { align: BlockAlignment; x: number; y: number; w
 export interface LetterImage { data: string; width: number; height: number; placement?: ImagePlacement }
 export interface LetterAttachment { id: string; title: string; content: string; category?: string; textFormat?: TextBlockFormat | null; image?: LetterImage | null }
 export interface LetterLayout {
+  showHeader?: boolean; showInformation?: boolean; informationAlign?: BlockAlignment
   bodyFormats?: (TextBlockFormat | null)[]
   sectionFormats?: Partial<Record<LetterSection, TextBlockFormat>>
   logoImage?: LetterImage | null

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import type { PreviewBlock } from '~/utils/editor-links'
 import type { LetterLayout } from '~/types/document'
 import { defaultFormat, formatBody, formatLines, lineHeightMm } from '~/utils/letter-format'
 import type { TextBlockFormat } from '~/types/document'
 import { imageGeometry } from '~/utils/letter-geometry'
-import { attachmentPages, paginateLines } from '~/utils/letter'
-const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean; attachmentOnly?: boolean; designer?: boolean }>()
+import { attachmentPages, paginateLines, validateLetter } from '~/utils/letter'
+const props = defineProps<{ layout: LetterLayout; body: string; ready: boolean; attachmentOnly?: boolean; designer?: boolean; linked?: boolean }>()
+const emit = defineEmits<{ select: [PreviewBlock] }>()
 const showAttachments = ref(false)
 const mounted = ref(false)
 const container = useTemplateRef<HTMLElement>('canvas')
@@ -45,9 +47,8 @@ const total = computed(() => measurements.value.pages.length + measurements.valu
 const pageHeight = 297 * 96 / 25.4
 function print(): string | null {
   if (total.value > 50) return 'Der Brief mit Anlagen überschreitet 50 Seiten.'
-  const required = [props.layout.senderName, props.layout.senderStreet, props.layout.senderPostalCode, props.layout.senderCity, props.layout.recipientName, props.layout.recipientStreet, props.layout.recipientPostalCode, props.layout.recipientCity, props.layout.subject, props.layout.salutation, props.layout.date]
-  if (required.some(value => !value.trim())) return 'Bitte vervollständige Absender, Empfänger, Betreff, Anrede und Datum vor dem Drucken.'
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(props.layout.date)) return 'Bitte wähle ein gültiges Briefdatum.'
+  try { validateLetter(props.layout) }
+  catch (error) { return error instanceof Error ? error.message : 'Die Briefangaben sind ungültig.' }
   for (const sheet of container.value?.querySelectorAll<HTMLElement>('.letter-page:not(.attachment-page)') || []) {
     const writing = sheet.querySelector<HTMLElement>('.letter-writing')!
     const footer = sheet.querySelector<HTMLElement>('.letter-footer')!
@@ -72,14 +73,14 @@ defineExpose({ print })
   <section class="preview-panel" :aria-label="attachmentOnly ? 'Formularvorschau' : 'Briefvorschau'">
     <div class="preview-toolbar no-print"><div><span class="preview-dot" /><strong>Live-Vorschau</strong><span class="preview-tag">A4</span></div><button v-if="measurements.annexes.length && !attachmentOnly" class="button subtle" :aria-expanded="showAttachments" @click="showAttachments = !showAttachments">{{ showAttachments ? 'Anlagen ausblenden' : `Anlagen anzeigen (${layout.attachments?.length})` }}</button><slot name="tools" /><div v-if="designer" class="preview-zoom"><button class="button subtle" :disabled="zoom <= 0.75" aria-label="Vorschau verkleinern" @click="zoom -= .25">−</button><button class="button subtle" aria-label="Vorschau einpassen" @click="zoom = 1">{{ Math.round(scale * 100) }} %</button><button class="button subtle" :disabled="zoom >= 2" aria-label="Vorschau vergrößern" @click="zoom += .25">＋</button></div><span v-else>{{ total }} {{ total === 1 ? 'Seite' : 'Seiten' }} · {{ Math.round(scale * 100) }} %</span></div>
     <div ref="canvas" class="preview-canvas">
-      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="total" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" :designer="designer" /></div></div>
+      <div v-for="(page,index) in measurements.pages" :key="index" class="page-frame" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }"><div class="page-scale" :style="{ transform: `scale(${scale})` }"><LetterPage :layout="layout" :page="page" :number="index + 1" :total="total" :subject-lines="measurements.subject" :salutation-lines="measurements.salutation" :closing-lines="measurements.closing" :closing-text-lines="measurements.closingText" :signature-lines="measurements.signature" :designer="designer" :linked="linked" @select="emit('select', $event)" /></div></div>
       <div v-for="(page,index) in measurements.annexes" :key="`attachment-${index}`" class="page-frame" :class="{ 'attachment-collapsed': !showAttachments && !attachmentOnly }" :style="{ height: `${pageHeight * scale}px`, width: `${210 * 96 / 25.4 * scale}px` }">
         <div class="page-scale" :style="{ transform: `scale(${scale})` }">
           <article class="letter-page attachment-page" :aria-label="`Anlage ${page.number}`">
             <div class="attachment-heading">Anlage {{ page.number }}{{ page.continued ? ' · Fortsetzung' : '' }}</div>
-            <h2><span v-for="(line, lineIndex) in page.title" :key="lineIndex">{{ line }}</span></h2>
+            <LetterPreviewTarget as="h2" :enabled="linked && attachmentOnly" label="Formulartitel" @select="emit('select', 'formTitle')"><span v-for="(line, lineIndex) in page.title" :key="lineIndex">{{ line }}</span></LetterPreviewTarget>
             <LetterPlacedImage v-if="page.image" :image="page.image" role="attachment" label="Formularbild" :designer="designer" />
-            <LetterFormattedLines :lines="page.lines" />
+            <LetterPreviewTarget :enabled="linked && attachmentOnly" label="Formulartext" @select="emit('select', 'formContent')"><LetterFormattedLines :lines="page.lines" /></LetterPreviewTarget>
             <footer>{{ measurements.pages.length + index + 1 }} / {{ total }}</footer>
           </article>
         </div>

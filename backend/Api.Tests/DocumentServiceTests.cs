@@ -77,6 +77,23 @@ public class DocumentServiceTests
     }
 
     [Fact]
+    public void HiddenInformationDoesNotRequireValuesAndKeepsTheLayoutOptions()
+    {
+        var result = documents.Generate(new GenerateDocumentRequest
+        {
+            Template = "Text",
+            Layout = new LetterLayout
+            {
+                ShowHeader = false, ShowInformation = false, InformationAlign = "right", Reference = "{{Aktenzeichen}}"
+            }
+        });
+        Assert.False(result.Layout!.ShowHeader);
+        Assert.False(result.Layout.ShowInformation);
+        Assert.Equal("right", result.Layout.InformationAlign);
+        Assert.DoesNotContain("Aktenzeichen", result.Fields);
+    }
+
+    [Fact]
     public void RejectsMissingLayoutPlaceholderAndExcessiveRenderedLayoutLength()
     {
         Assert.Throws<ArgumentException>(() => documents.Generate(new GenerateDocumentRequest

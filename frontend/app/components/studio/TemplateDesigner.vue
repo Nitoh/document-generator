@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { focusEditorField, type PreviewBlock } from '~/utils/editor-links'
 import { splitBlocks } from '~/utils/letter-format'
 import { salutations, closings, closingTexts } from '~/data/template-presets'
 import type { LetterAttachment, LetterDraft, LetterSection, TextBlockFormat } from '~/types/document'
@@ -39,12 +40,44 @@ function move(index: number, direction: number) {
   const item = blocks.value.splice(index, 1)[0]!
   blocks.value.splice(index + direction, 0, item)
 }
+function focusBlock(block: PreviewBlock) {
+  const targets: Partial<Record<PreviewBlock, string>> = {
+    header: 'design-sender', recipient: 'design-recipient', information: 'design-reference', subject: 'default-subject',
+    salutation: 'default-salutation', closingText: 'default-closing-text', closing: 'default-closing',
+    signature: 'default-signature', footer: 'design-footer'
+  }
+  const match = block.startsWith('body:') ? blocks.value.filter(item => item.text.trim())[Number(block.slice(5))] : undefined
+  const id = match ? `block-${match.id}` : targets[block]
+  if (id) focusEditorField(id)
+}
+defineExpose({ focusBlock })
 </script>
 <template>
   <section class="editor-panel no-print design-fields" aria-label="Briefvorlage gestalten">
     <UiFormField id="template-name" v-model="draft.name" label="Vorlagenname" :maxlength="200" />
     <StudioCategoryField id="template-category" v-model="draft.category" :categories="categories" />
-    <StudioAppearancePicker v-model:design="draft.layout.design" v-model:header="draft.layout.headerStyle" id-prefix="designer" />
+    <fieldset class="preview-editor-group">
+      <legend>Briefkopf</legend>
+      <StudioLetterBlockOptions :layout="draft.layout" kind="header" />
+      <UiFormField id="design-sender" v-model="draft.layout.senderName" label="Absender / Unternehmen" :maxlength="120" />
+      <UiFormField id="design-sender-street" v-model="draft.layout.senderStreet" label="Straße und Hausnummer" :maxlength="120" />
+      <div class="field-row"><UiFormField id="design-sender-postal" v-model="draft.layout.senderPostalCode" label="Postleitzahl" :maxlength="20" /><UiFormField id="design-sender-city" v-model="draft.layout.senderCity" label="Ort" :maxlength="80" /></div>
+      <StudioAppearancePicker v-model:design="draft.layout.design" v-model:header="draft.layout.headerStyle" id-prefix="designer" />
+      <StudioImageField v-model="draft.layout.logoImage" role="logo" label="Logo im Briefkopf" />
+    </fieldset>
+    <fieldset class="preview-editor-group">
+      <legend>Empfängeranschrift</legend>
+      <UiFormField id="design-recipient" v-model="draft.layout.recipientName" label="Empfänger / Unternehmen" :maxlength="160" />
+      <UiFormField id="design-recipient-street" v-model="draft.layout.recipientStreet" label="Straße und Hausnummer" :maxlength="120" />
+      <div class="field-row"><UiFormField id="design-recipient-postal" v-model="draft.layout.recipientPostalCode" label="Postleitzahl" :maxlength="20" /><UiFormField id="design-recipient-city" v-model="draft.layout.recipientCity" label="Ort" :maxlength="80" /></div>
+    </fieldset>
+    <fieldset class="preview-editor-group">
+      <legend>Informationsblock</legend>
+      <StudioLetterBlockOptions :layout="draft.layout" kind="information" />
+      <UiFormField id="design-reference" v-model="draft.layout.reference" label="Aktenzeichen / Referenz" :maxlength="60" />
+      <div class="field-row"><UiFormField id="design-phone" v-model="draft.layout.senderPhone" label="Telefon" :maxlength="50" /><UiFormField id="design-email" v-model="draft.layout.senderEmail" label="E-Mail" :maxlength="120" /></div>
+      <div class="field-row"><UiFormField id="design-place" v-model="draft.layout.city" label="Ausstellungsort" :maxlength="80" /><UiFormField id="design-date" v-model="draft.layout.date" label="Datum" type="date" :maxlength="10" /></div>
+    </fieldset>
     <StudioTextFormatField label="Betreff" protected-block bold :model-value="draft.layout.sectionFormats?.subject" @update:model-value="setSectionFormat('subject', $event)" />
     <UiFormField id="default-subject" v-model="draft.layout.subject" label="Betreff" :maxlength="180" />
     <label class="form-field">Anrede-Voreinstellung
@@ -57,7 +90,7 @@ function move(index: number, direction: number) {
     <h2>Brieftext</h2>
     <p class="muted">Änderungen erscheinen sofort in der Vorschau. Verwende Platzhalter wie <code v-text="'{{Name}}'" /> für Angaben pro Brief.</p>
     <div class="archive-tools"><div class="form-field"><label for="snippet">Textbaustein</label><select id="snippet" v-model="preset"><option v-for="(_, name) in snippets" :key="name">{{ name }}</option></select></div><button class="button subtle" @click="addBlock">Baustein hinzufügen</button></div>
-    <div v-for="(block, index) in blocks" :key="block.id" class="designer-block">
+    <div v-for="(block, index) in blocks" :key="block.id" class="designer-block preview-editor-group">
       <StudioTextFormatField v-model="block.format" :label="`Baustein ${index + 1}`" />
       <UiFormField :id="`block-${block.id}`" v-model="block.text" :label="`Baustein ${index + 1}`" multiline :rows="3" :maxlength="20000" />
       <div class="document-actions">
@@ -83,7 +116,7 @@ function move(index: number, direction: number) {
     <UiFormField id="default-closing" v-model="draft.layout.closing" label="Grußformel" :maxlength="100" />
     <StudioTextFormatField label="Unterschrift" protected-block :model-value="draft.layout.sectionFormats?.signature" @update:model-value="setSectionFormat('signature', $event)" />
     <UiFormField id="default-signature" v-model="draft.layout.signature" label="Name unter der Unterschrift" :maxlength="120" />
-    <StudioImageField v-model="draft.layout.logoImage" role="logo" label="Logo im Briefkopf" />
+    <UiFormField id="design-footer" v-model="draft.layout.footer" label="Fußzeile" :maxlength="200" />
     <StudioImageField v-model="draft.layout.signatureImage" role="signature" label="Unterschrift" />
   </section>
 </template>
